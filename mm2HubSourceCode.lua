@@ -79,6 +79,7 @@ https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://
  https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript 
 thx bybsa and pulse team for source!
 ]]
+
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -413,6 +414,7 @@ local main = create("Frame", {
 	BackgroundColor3 = bgColor,
 	BorderSizePixel = 0,
 	Visible = false,
+	ZIndex = 2,
 	Parent = gui,
 })
 addCorner(main, 10)
@@ -1585,6 +1587,157 @@ return (function(...)
 		}
 	end
 
+	Section.Dropdown = function(self2, name, desc, options, placeholder, callback)
+		local row = self2:_row(name, desc)
+		local values = table.clone(options or {})
+		local selected
+		local closePopup
+		local badge = create("TextButton", {
+			Text = placeholder or "select...",
+			Font = Enum.Font.GothamMedium,
+			TextSize = 11,
+			TextColor3 = dimColor,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			BackgroundColor3 = bgColor,
+			AutoButtonColor = false,
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -10, 0.5, 0),
+			Size = UDim2.fromOffset(130, 24),
+			Parent = row,
+		})
+		addCorner(badge, 6)
+		local badgeStroke = addStroke(badge)
+		create("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 20), Parent = badge })
+		local arrow = create("TextLabel", {
+			Text = "v",
+			Font = Enum.Font.GothamBold,
+			TextSize = 10,
+			TextColor3 = mutedColor,
+			BackgroundTransparency = 1,
+			AnchorPoint = Vector2.new(1, 0.5),
+			Position = UDim2.new(1, -6, 0.5, -1),
+			Size = UDim2.fromOffset(12, 16),
+			ZIndex = 3,
+			Parent = badge,
+		})
+
+		local function setSelected(value, silent)
+			if value ~= nil and not table.find(values, value) then
+				return
+			end
+			selected = value
+			badge.Text = value or placeholder or "select..."
+			badge.TextColor3 = value and textColor or dimColor
+			if value and not silent then
+				task.spawn(callback, value)
+			end
+		end
+
+		connect(badge.MouseButton1Click, function()
+			if closePopup then
+				closePopup()
+				return
+			end
+			local backdrop = create("TextButton", {
+				Text = "",
+				BackgroundTransparency = 1,
+				AutoButtonColor = false,
+				Size = UDim2.fromScale(1, 1),
+				ZIndex = 149,
+				Parent = gui,
+			})
+			local visibleRows = math.max(1, math.min(#values, 5))
+			local popupHeight = visibleRows * 26 + 8
+			local rel = badge.AbsolutePosition - gui.AbsolutePosition
+			local x = math.clamp(rel.X, 4, math.max(4, gui.AbsoluteSize.X - 134))
+			local below = rel.Y + badge.AbsoluteSize.Y + 4
+			local y = below + popupHeight <= gui.AbsoluteSize.Y - 4 and below or math.max(4, rel.Y - popupHeight - 4)
+			local popup = create("Frame", {
+				Position = UDim2.fromOffset(x, y),
+				Size = UDim2.fromOffset(130, popupHeight),
+				BackgroundColor3 = panelColor,
+				ZIndex = 150,
+				Parent = gui,
+			})
+			addCorner(popup, 7)
+			create("UIStroke", { Color = accentColor, Transparency = 0.45, Thickness = 1, Parent = popup })
+			local list = create("ScrollingFrame", {
+				Position = UDim2.fromOffset(4, 4),
+				Size = UDim2.new(1, -8, 1, -8),
+				BackgroundTransparency = 1,
+				BorderSizePixel = 0,
+				ScrollBarThickness = #values > 5 and 2 or 0,
+				CanvasSize = UDim2.fromOffset(0, math.max(22, #values * 26)),
+				ZIndex = 151,
+				Parent = popup,
+			})
+			closePopup = function()
+				closePopup = nil
+				if backdrop.Parent then
+					backdrop:Destroy()
+				end
+				if popup.Parent then
+					popup:Destroy()
+				end
+				tween(badgeStroke, 0.2, { Color = strokeColor })
+				tween(arrow, 0.2, { Rotation = 0, TextColor3 = mutedColor })
+			end
+			backdrop.MouseButton1Click:Connect(closePopup)
+			tween(badgeStroke, 0.15, { Color = accentColor })
+			tween(arrow, 0.2, { Rotation = 180, TextColor3 = accentColor })
+			if #values == 0 then
+				create("TextLabel", {
+					Text = "no configs",
+					Font = Enum.Font.GothamMedium,
+					TextSize = 10,
+					TextColor3 = mutedColor,
+					BackgroundTransparency = 1,
+					Size = UDim2.new(1, 0, 0, 22),
+					ZIndex = 152,
+					Parent = list,
+				})
+			else
+				for i, value in ipairs(values) do
+					local option = create("TextButton", {
+						Text = value,
+						Font = selected == value and Enum.Font.GothamBold or Enum.Font.GothamMedium,
+						TextSize = 10,
+						TextColor3 = selected == value and accentColor or textColor,
+						TextTruncate = Enum.TextTruncate.AtEnd,
+						BackgroundColor3 = selected == value and hoverColor or elemColor,
+						AutoButtonColor = false,
+						Position = UDim2.fromOffset(0, (i - 1) * 26),
+						Size = UDim2.new(1, -2, 0, 22),
+						ZIndex = 152,
+						Parent = list,
+					})
+					addCorner(option, 5)
+					option.MouseButton1Click:Connect(function()
+						setSelected(value)
+						closePopup()
+					end)
+				end
+			end
+		end)
+
+		return {
+			Get = function()
+				return selected
+			end,
+			Set = setSelected,
+			Update = function(newOptions)
+				values = table.clone(newOptions or {})
+				if selected and not table.find(values, selected) then
+					setSelected(nil, true)
+				end
+				if closePopup then
+					closePopup()
+				end
+			end,
+		}
+	end
+
 	local dragSlider
 
 	Section.Slider = function(self2, name, min, max, default, callback, fmt)
@@ -2666,7 +2819,6 @@ return (function(...)
 	local menuSeq = 0
 	local showMascot
 	local mascot = {}
-	local base64Decode
 	local onMenuToggled
 
 	local function setMenuOpen(state)
@@ -3260,12 +3412,17 @@ return (function(...)
 				dragSlider = nil
 			end
 		end)
-		local gradStart = os.clock()
+		local gradStart, lastGradientUpdate = os.clock(), 0
 		connect(RunService.RenderStepped, function()
 			if not main.Visible then
 				return
 			end
-			local t = (os.clock() - gradStart) * 0.35
+			local now = os.clock()
+			if now - lastGradientUpdate < 1 / 30 then
+				return
+			end
+			lastGradientUpdate = now
+			local t = (now - gradStart) * 0.35
 			local seq = shimmerSeq(t)
 			for _, g in ipairs(gradients) do
 				g.Color = seq
@@ -3275,12 +3432,15 @@ return (function(...)
 		do
 			local mascots = {
 				CoolRock = {
-					file = storageFolder .. "/coolrock.png",
-					url = "https://raw.githubusercontent.com/rockscripter/MM2Drone/refs/heads/main/coolrock.png",
+					file = storageFolder .. "/coolrock2.png",
+					url = "https://raw.githubusercontent.com/rockscripter/MM2Drone/refs/heads/main/coolrock2.png",
 					frames = 45,
 					cols = 7,
 					cell = 144,
-					inset = 4,
+					cropLeft = 8,
+					cropRight = 8,
+					cropTop = 16,
+					cropBottom = 4,
 					delay = 0.14,
 				},
 			}
@@ -3292,7 +3452,7 @@ return (function(...)
 				ImageTransparency = 1,
 				ScaleType = Enum.ScaleType.Fit,
 				Visible = false,
-				ZIndex = 2,
+				ZIndex = 1,
 				Parent = gui,
 			})
 			local cur
@@ -3318,38 +3478,6 @@ return (function(...)
 				end)
 			end
 
-			local function decodeBase64(s)
-				s = s:gsub("[^%w%+/=]", "")
-				local f = crypt and (crypt.base64decode or crypt.base64 and crypt.base64.decode) or base64_decode
-				if f then
-					local ok, r = pcall(f, s)
-					if ok and type(r) == "string" and #r > 0 then
-						return r
-					end
-				end
-				local map = {}
-				for i = 1, 64 do
-					map[("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"):byte(i)] = i - 1
-				end
-				local out, n, bits, bitCount = {}, 0, 0, 0
-				for i = 1, #s do
-					local v = map[s:byte(i)]
-					if v then
-						bits = bits * 64 + v
-						bitCount += 6
-						if bitCount >= 8 then
-							bitCount -= 8
-							local p = 2 ^ bitCount
-							n += 1
-							out[n] = string.char(math.floor(bits / p) % 256)
-							bits = bits % p
-						end
-					end
-				end
-				return table.concat(out)
-			end
-
-			base64Decode = decodeBase64
 			local cache = {}
 
 			local function loadAsset(name)
@@ -3430,9 +3558,10 @@ return (function(...)
 					end
 					local m = mascots[name]
 					img.Image = asset
-					local inset = m.inset or 0
-					img.ImageRectOffset = m.frames and Vector2.new(inset, inset) or Vector2.zero
-					img.ImageRectSize = m.frames and Vector2.new(m.cell - inset * 2, m.cell - inset * 2) or Vector2.zero
+					local cropLeft, cropTop = m.cropLeft or 0, m.cropTop or 0
+					local cropRight, cropBottom = m.cropRight or 0, m.cropBottom or 0
+					img.ImageRectOffset = m.frames and Vector2.new(cropLeft, cropTop) or Vector2.zero
+					img.ImageRectSize = m.frames and Vector2.new(m.cell - cropLeft - cropRight, m.cell - cropTop - cropBottom) or Vector2.zero
 					cur = m
 					if menuOpen then
 						showMascot(true)
@@ -3462,7 +3591,7 @@ return (function(...)
 			local fx, py, vx, vy = 0, 0, 0, 0
 			local rot, rotVel = 0, 0
 			local smoothVx = 0
-			local lastX, lastY
+			local lastX
 			local dragAmt = 0
 			local mascotStart = os.clock()
 			connect(RunService.RenderStepped, function(dt)
@@ -3479,15 +3608,14 @@ return (function(...)
 				local menuX, menuY = pos.X.Offset, pos.Y.Offset
 				if cur.frames then
 					local f = math.floor(t / cur.delay) % cur.frames
-					local inset = cur.inset or 0
-					img.ImageRectOffset = Vector2.new(f % cur.cols * cur.cell + inset, math.floor(f / cur.cols) * cur.cell + inset)
+					img.ImageRectOffset = Vector2.new(f % cur.cols * cur.cell + (cur.cropLeft or 0), math.floor(f / cur.cols) * cur.cell + (cur.cropTop or 0))
 				end
 				if not lastX then
 					fx, py, vx, vy, rot, rotVel, smoothVx = menuX, menuY, 0, 0, 0, 0, 0
-					lastX, lastY = menuX, menuY
+					lastX = menuX
 				end
 				smoothVx += ((menuX - lastX) / dt - smoothVx) * math.min(dt * 12, 1)
-				lastX, lastY = menuX, menuY
+				lastX = menuX
 				dragAmt += ((dragging and 1 or 0) - dragAmt) * math.min(dt * 8, 1)
 				local h = dt / 2
 				for _ = 1, 2 do
@@ -3502,8 +3630,7 @@ return (function(...)
 				local lagY = math.clamp(py - menuY, -40, 0)
 				fx, py = menuX + lagX, math.clamp(py, menuY - 40, menuY)
 				local sq = math.clamp(vy * 0.00025, -0.12, 0.12)
-				local breathe = math.sin(t * 2.2) * 0.025 * (1 - dragAmt)
-				local sx, sy = 1 + sq * 0.6 - breathe * 0.5, 1 - sq + breathe
+				local sx, sy = 1 + sq * 0.6, 1 - sq
 				local size = 150 * s * (1 + 0.07 * hoverAmt)
 				local w, imgH = size * sx, size * sy
 				local left = menuX - meshSize.X.Offset / 2 * s
@@ -3511,7 +3638,7 @@ return (function(...)
 				local x = left + 58 * s + lagX * p
 				local peekY = topBar2 + 13 * s
 				local y = peekY - (1 - p) * 70 * s + lagY * p - 6 * hoverAmt * s - 6 * dragAmt * s
-				local angle = (math.sin(t * 1.6) * 2.5 * (1 - dragAmt) + rot) * math.clamp(p, 0, 1) - 4 * hoverAmt
+				local angle = rot * math.clamp(p, 0, 1) - 4 * hoverAmt
 				local r = math.rad(angle)
 				x += math.sin(r) * imgH / 2
 				y += (1 - math.cos(r)) * imgH / 2
@@ -3524,17 +3651,17 @@ return (function(...)
 		end
 		local mainTab = addTab("Main", "gear", "speed, jumps and character")
 		local combatTab = addTab("Combat", "target", "combat features")
-		local droneTab = addTab("Drone", "drone", "fly a Shahed or FPV drone into players (murderer)")
-		addSeparator()
-		local skinTab = addTab("Skin Changer", "star", "every MM2 knife and gun, only you see them")
-		local voteTab = addTab("Vote Dupe Map", "pin", "vote for a map over and over (tp + reset loop)")
+		local droneTab = addTab("Drone", "drone", "fly a Shahed or FPV drone into players")
 		addSeparator()
 		local trollTab = addTab("Troll Fun", "smile", "fun and trolling")
+		local playersTab = addTab("Players", "smile", "player list and quick actions")
 		local animsTab = addTab("Free anims", "move", "animation packs for your character")
+		local voteTab = addTab("Vote Dupe Map", "pin", "vote for a map over and over (tp + reset loop)")
 		local stopAnims
 		addSeparator()
 		local visualsTab = addTab("Visuals", "eye", "realistic shader, light and sky")
 		setSubTabs(visualsTab, { "Shader", "ESP", "BackTrack", "Models" })
+		local skinTab = addTab("Skin Changer", "star", "every MM2 knife and gun, only you see them")
 		local cursorsTab = addTab("Cursors", "bolt", "your own cursor")
 		local stopCursor
 		local stopEsp
@@ -3545,10 +3672,51 @@ return (function(...)
 		local stopVoteDupe
 		local stopBunnyModel
 		local stopAvatar
+		local stopAura
 		local stopOrbs
 		local stopSkyWorms
 		local stopAwm
 		local stopRoleFling
+		local playerFlingAction
+		local playerKnifeKill
+		local playerGunKill
+		local stopPlayersActions
+		local function findTool(p, name)
+			local char, backpack = p and p.Character, p and p:FindFirstChildOfClass("Backpack")
+			return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
+		end
+
+		local function alive(p)
+			local char = p and p.Character
+			local hrp = char and char:FindFirstChild("HumanoidRootPart")
+			local hum = char and char:FindFirstChildOfClass("Humanoid")
+			if hrp and hum and hum.Health > 0 then
+				return hrp, hum, char
+			end
+		end
+
+		local lobbyCache, lobbyCFrame, lobbyHalfSize, lobbyCacheAt
+		local function inLobby(pos)
+			local now = os.clock()
+			if not lobbyCacheAt or now - lobbyCacheAt > 1 or not lobbyCache or not lobbyCache.Parent then
+				lobbyCacheAt = now
+				lobbyCache = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
+				lobbyCFrame, lobbyHalfSize = nil, nil
+				if lobbyCache then
+					local ok, cf, size = pcall(lobbyCache.GetBoundingBox, lobbyCache)
+					if ok then
+						lobbyCFrame = cf
+						lobbyHalfSize = size / 2 + Vector3.new(10, 30, 10)
+					end
+				end
+			end
+			if not lobbyCFrame then
+				return false
+			end
+			local rel = lobbyCFrame:PointToObjectSpace(pos)
+			return math.abs(rel.X) <= lobbyHalfSize.X and math.abs(rel.Y) <= lobbyHalfSize.Y and math.abs(rel.Z) <= lobbyHalfSize.Z
+		end
+
 		local desync = { real = nil, pause = 0, on = false }
 		local function pauseDesync(root)
 			if desync.real and root and root.Parent then
@@ -4240,25 +4408,23 @@ return (function(...)
 			local function formatUptime(sec)
 				sec = math.floor(sec)
 				local h, m, secs = sec // 3600, sec // 60 % 60, sec % 60
-				local hoursText = if h > 0 then function()
-					return ("%d<font color=\"#787878\">h</font> %02d<font color=\"#787878\">m</font>").format("%d<font color=\"#787878\">h</font> %02d<font color=\"#787878\">m</font>", h, m)
-				end else nil
-				if hoursText then
-					return hoursText()
+				if h > 0 then
+					return ("%d<font color=\"#787878\">h</font> %02d<font color=\"#787878\">m</font>"):format(h, m)
 				end
-				return ("%d<font color=\"#787878\">m</font> %02d<font color=\"#787878\">s</font>").format("%d<font color=\"#787878\">m</font> %02d<font color=\"#787878\">s</font>", m, secs)
+				return ("%d<font color=\"#787878\">m</font> %02d<font color=\"#787878\">s</font>"):format(m, secs)
 			end
 
 			local function withUnit(n, entry)
-				return ("%s <font color=\"#787878\" size=\"12\">%s</font>").format("%s <font color=\"#787878\" size=\"12\">%s</font>", n, entry)
+				return ("%s <font color=\"#787878\" size=\"12\">%s</font>"):format(n, entry)
 			end
 
-			local frameCount2, at = 0, os.clock()
+			local frameCount2, at, lastCardGradient = 0, os.clock(), 0
 			local serverStart = os.clock()
 			connect(RunService.RenderStepped, function()
 				frameCount2 += 1
 				local now = os.clock()
-				if page.Visible and main.Visible then
+				if page.Visible and main.Visible and now - lastCardGradient >= 1 / 30 then
+					lastCardGradient = now
 					local t = (now - serverStart) * 0.35
 					local seq = shimmerSeq(t)
 					for i, g in ipairs(cardGradients) do
@@ -4326,11 +4492,12 @@ return (function(...)
 				end)
 				return names
 			end
+			local profileDropdown = configsSec:Dropdown("Saved configs", "choose a config", profileNames(), "select...", function(name)
+				configName.Set(name)
+			end)
 
-			local function refreshProfileHint()
-				local names = profileNames()
-				configName.SetPlaceholder(#names > 0 and table.concat(names, ", ") or "enter config name")
-				return names
+			local function refreshProfileList()
+				profileDropdown.Update(profileNames())
 			end
 
 			local function enteredProfileName()
@@ -4359,7 +4526,8 @@ return (function(...)
 					return
 				end
 				configName.Set(name)
-				refreshProfileHint()
+				refreshProfileList()
+				profileDropdown.Set(name, true)
 				notify("Config", 'created "' .. name .. '"')
 			end)
 			configsSec:Button("Save", "overwrite the named config with current settings", function()
@@ -4393,6 +4561,7 @@ return (function(...)
 				end
 				applyConfig(profile)
 				configName.Set(name)
+				profileDropdown.Set(name, true)
 				notify("Config", 'loaded "' .. name .. '"')
 			end)
 			configsSec:Button("Delete", "permanently remove the named config", function()
@@ -4413,14 +4582,10 @@ return (function(...)
 					return
 				end
 				configName.Set("")
-				refreshProfileHint()
+				refreshProfileList()
 				notify("Config", 'deleted "' .. name .. '"')
 			end)
-			configsSec:Button("List", "show all saved config names", function()
-				local names = refreshProfileHint()
-				notify("Configs", #names > 0 and table.concat(names, ", ") or "no saved configs")
-			end)
-			refreshProfileHint()
+			refreshProfileList()
 			local scriptSec = addSection(settingsTab, "Script")
 			scriptSec:Button("Reset config", "restore defaults for the active settings", function()
 				applyConfig({})
@@ -4631,11 +4796,11 @@ return (function(...)
 						inst.Parent = nil
 					end
 				end
-				fx.cc = create("ColorCorrectionEffect", { Name = "PZ_Realistic_Color", Parent = Lighting })
-				fx.bloom = create("BloomEffect", { Name = "PZ_Realistic_Bloom", Parent = Lighting })
-				fx.rays = create("SunRaysEffect", { Name = "PZ_Realistic_Rays", Parent = Lighting })
-				fx.dof = create("DepthOfFieldEffect", { Name = "PZ_Realistic_DOF", Parent = Lighting })
-				fx.atmo = create("Atmosphere", { Name = "PZ_Realistic_Atmosphere", Parent = Lighting })
+				fx.cc = create("ColorCorrectionEffect", { Name = "RockHubRealisticColor", Parent = Lighting })
+				fx.bloom = create("BloomEffect", { Name = "RockHubRealisticBloom", Parent = Lighting })
+				fx.rays = create("SunRaysEffect", { Name = "RockHubRealisticRays", Parent = Lighting })
+				fx.dof = create("DepthOfFieldEffect", { Name = "RockHubRealisticDOF", Parent = Lighting })
+				fx.atmo = create("Atmosphere", { Name = "RockHubRealisticAtmosphere", Parent = Lighting })
 				apply()
 			end
 
@@ -4830,12 +4995,6 @@ return (function(...)
 			local red = Color3.fromRGB(255, 58, 58)
 			local blue = Color3.fromRGB(64, 150, 255)
 			local entries = {}
-
-			local function findTool(plr, name)
-				local char = plr.Character
-				local backpack = plr:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) ~= nil or backpack and backpack:FindFirstChild(name) ~= nil
-			end
 
 			local serverRoles = {}
 			local alive = true
@@ -5726,7 +5885,6 @@ return (function(...)
 			}
 			local HttpService = game:GetService("HttpService")
 			local AvatarEditorService = game:GetService("AvatarEditorService")
-			local AssetService = game:GetService("AssetService")
 			local green = Color3.fromRGB(104, 222, 92)
 			local cardColor = Color3.fromRGB(36, 36, 38)
 			local cardHover = Color3.fromRGB(48, 48, 52)
@@ -6959,10 +7117,10 @@ return (function(...)
 					local hrp = char:FindFirstChild("HumanoidRootPart")
 
 					local function trail(topBar2, bottom, emission)
-						local a0 = create("Attachment", { Name = "PZTrailA", Position = Vector3.new(0, topBar2, 0), Parent = hrp })
-						local a1 = create("Attachment", { Name = "PZTrailB", Position = Vector3.new(0, bottom, 0), Parent = hrp })
+						local a0 = create("Attachment", { Name = "RockHubTrailA", Position = Vector3.new(0, topBar2, 0), Parent = hrp })
+						local a1 = create("Attachment", { Name = "RockHubTrailB", Position = Vector3.new(0, bottom, 0), Parent = hrp })
 						local tr = create("Trail", {
-							Name = "PZTrail",
+							Name = "RockHubTrail",
 							Attachment0 = a0,
 							Attachment1 = a1,
 							FaceCamera = false,
@@ -7349,12 +7507,12 @@ return (function(...)
 					return
 				end
 				local d = { char = char, parts = {}, ears = {}, seed = math.random() * 10, kind = "asset" }
-				d.folder = create("Folder", { Name = "PZCustomModel", Parent = char })
+				d.folder = create("Folder", { Name = "RockHubCustomModel", Parent = char })
 				local m = template:Clone()
 				local parts = {}
 				for _, x in ipairs(m:GetDescendants()) do
 					if x:IsA("BasePart") then
-						x.Name = "PZBunny"
+						x.Name = "RockHubBunny"
 						x.Anchored = false
 						x.CanCollide = false
 						x.CanQuery = false
@@ -7582,7 +7740,7 @@ return (function(...)
 					else
 						table.insert(state.hide, "RightUpperLeg")
 						local legPart = Instance.new("Part")
-						legPart.Name = "PZKorblox"
+						legPart.Name = "RockHubKorblox"
 						legPart.CanCollide, legPart.CanQuery, legPart.CanTouch, legPart.Massless = false, false, false, true
 						legPart.Size = upperLeg.Size
 						legPart.CFrame = upperLeg.CFrame
@@ -7623,7 +7781,7 @@ return (function(...)
 						meshProps[42155] = {
 							"Name",
 							function()
-								return "PZKorblox"
+								return "RockHubKorblox"
 							end,
 						}
 						local meshOrder = { 42155, 42163 }
@@ -7661,7 +7819,7 @@ return (function(...)
 						return state.orig.part == upperLeg and upperLeg.MeshId == "rbxassetid://902942096"
 					end
 					for _, x in ipairs(state.extra) do
-						if typeof(x) == "Instance" and x.Name == "PZKorblox" and x.Parent == char then
+						if typeof(x) == "Instance" and x.Name == "RockHubKorblox" and x.Parent == char then
 							local w = x:FindFirstChildOfClass("WeldConstraint")
 							return w ~= nil and w.Part0 == upperLeg
 						end
@@ -7669,7 +7827,7 @@ return (function(...)
 					return false
 				end
 				local rightLeg = char:FindFirstChild("Right Leg")
-				return rightLeg ~= nil and rightLeg:FindFirstChild("PZKorblox") ~= nil
+				return rightLeg ~= nil and rightLeg:FindFirstChild("RockHubKorblox") ~= nil
 			end
 
 			local lastChar
@@ -7718,6 +7876,238 @@ return (function(...)
 				av.headless, av.korblox = false, false
 				setHeadless(player.Character, false)
 				removeKorblox()
+			end
+		end
+		do
+			local aura = {
+				on = false,
+				style = "Energy",
+				custom = Color3.fromRGB(105, 205, 255),
+				intensity = 55,
+				size = 100,
+			}
+			local auraRoot
+			local auraObjects = {}
+			local emitters = {}
+			local auraLight
+			local auraHighlight
+			local rainbowAt = 0
+
+			local function track(inst)
+				table.insert(auraObjects, inst)
+				return inst
+			end
+
+			local function clear()
+				for _, inst in ipairs(auraObjects) do
+					if inst.Parent then
+						inst:Destroy()
+					end
+				end
+				table.clear(auraObjects)
+				table.clear(emitters)
+				auraRoot, auraLight, auraHighlight = nil, nil, nil
+			end
+
+			local function styleColor()
+				if aura.style == "Flame" then
+					return Color3.fromRGB(255, 92, 34)
+				elseif aura.style == "Frost" then
+					return Color3.fromRGB(125, 225, 255)
+				elseif aura.style == "Void" then
+					return Color3.fromRGB(145, 65, 255)
+				elseif aura.style == "Rainbow" then
+					return Color3.fromHSV(os.clock() * 0.15 % 1, 0.85, 1)
+				elseif aura.style == "Custom" then
+					return aura.custom
+				end
+				return Color3.fromRGB(105, 205, 255)
+			end
+
+			local function addEmitter(parent, secondary)
+				local scale = aura.size / 100
+				local rate = aura.intensity * (secondary and 0.18 or 0.42)
+				local texture = "rbxasset://textures/particles/sparkles_main.dds"
+				local speed = NumberRange.new(0.45, 1.5)
+				local acceleration = Vector3.new(0, 1.2, 0)
+				local lifetime = NumberRange.new(0.65, 1.25)
+				local size
+				if aura.style == "Flame" and not secondary then
+					texture = "rbxasset://textures/particles/fire_main.dds"
+					speed = NumberRange.new(1.2, 2.8)
+					acceleration = Vector3.new(0, 3.5, 0)
+					size = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0.7 * scale),
+						NumberSequenceKeypoint.new(0.55, 1.5 * scale),
+						NumberSequenceKeypoint.new(1, 0),
+					})
+				elseif aura.style == "Void" and not secondary then
+					texture = "rbxasset://textures/particles/smoke_main.dds"
+					speed = NumberRange.new(0.2, 0.8)
+					acceleration = Vector3.new(0, 1.8, 0)
+					lifetime = NumberRange.new(1, 1.8)
+					size = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 1.1 * scale),
+						NumberSequenceKeypoint.new(0.65, 2.1 * scale),
+						NumberSequenceKeypoint.new(1, 0),
+					})
+				elseif aura.style == "Frost" and not secondary then
+					texture = "rbxasset://textures/particles/smoke_main.dds"
+					speed = NumberRange.new(0.15, 0.65)
+					acceleration = Vector3.new(0, -0.7, 0)
+					lifetime = NumberRange.new(0.9, 1.6)
+					size = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, 0.65 * scale),
+						NumberSequenceKeypoint.new(0.7, 1.35 * scale),
+						NumberSequenceKeypoint.new(1, 0),
+					})
+				else
+					size = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, (secondary and 0.22 or 0.42) * scale),
+						NumberSequenceKeypoint.new(0.5, (secondary and 0.13 or 0.7) * scale),
+						NumberSequenceKeypoint.new(1, 0),
+					})
+				end
+				local color = styleColor()
+				local emitter = track(create("ParticleEmitter", {
+					Name = secondary and "RockHubAuraSparks" or "RockHubAuraCore",
+					Texture = texture,
+					Rate = rate,
+					Lifetime = lifetime,
+					Speed = speed,
+					Acceleration = acceleration,
+					SpreadAngle = Vector2.new(180, 180),
+					Rotation = NumberRange.new(0, 360),
+					RotSpeed = NumberRange.new(-100, 100),
+					LightEmission = aura.style == "Void" and 0.15 or 0.85,
+					LightInfluence = 0,
+					Size = size,
+					Transparency = NumberSequence.new({
+						NumberSequenceKeypoint.new(0, secondary and 0.05 or 0.2),
+						NumberSequenceKeypoint.new(0.75, 0.45),
+						NumberSequenceKeypoint.new(1, 1),
+					}),
+					Color = ColorSequence.new(color),
+					Parent = parent,
+				}))
+				table.insert(emitters, emitter)
+			end
+
+			local function build()
+				clear()
+				if not aura.on then
+					return
+				end
+				local char = player.Character
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				if not root or not hum or hum.Health <= 0 then
+					return
+				end
+				auraRoot = root
+				local bottom = track(create("Attachment", { Name = "RockHubAuraBottom", Position = Vector3.new(0, -1.5, 0), Parent = root }))
+				local center = track(create("Attachment", { Name = "RockHubAuraCenter", Position = Vector3.new(0, 0.45, 0), Parent = root }))
+				addEmitter(bottom, false)
+				addEmitter(center, true)
+				local color = styleColor()
+				auraLight = track(create("PointLight", {
+					Name = "RockHubAuraLight",
+					Color = color,
+					Brightness = 0.8 + aura.intensity / 45,
+					Range = 7 + aura.size / 30,
+					Shadows = false,
+					Parent = root,
+				}))
+				auraHighlight = track(create("Highlight", {
+					Name = "RockHubAuraHighlight",
+					Adornee = char,
+					DepthMode = Enum.HighlightDepthMode.Occluded,
+					FillColor = color,
+					FillTransparency = 0.92,
+					OutlineColor = color,
+					OutlineTransparency = 0.35,
+					Parent = char,
+				}))
+			end
+
+			connect(player.CharacterAdded, function()
+				if aura.on then
+					task.delay(0.4, build)
+				end
+			end)
+			connect(RunService.Heartbeat, function()
+				if not aura.on then
+					return
+				end
+				local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+				if not root then
+					if auraRoot then
+						clear()
+					end
+					return
+				end
+				if auraRoot ~= root or not auraRoot.Parent then
+					build()
+					return
+				end
+				local now = os.clock()
+				if aura.style ~= "Rainbow" or now - rainbowAt < 0.06 then
+					return
+				end
+				rainbowAt = now
+				local hue = now * 0.16 % 1
+				local c1 = Color3.fromHSV(hue, 0.9, 1)
+				local c2 = Color3.fromHSV((hue + 0.16) % 1, 0.9, 1)
+				local sequence = ColorSequence.new(c1, c2)
+				for _, emitter in ipairs(emitters) do
+					emitter.Color = sequence
+				end
+				auraLight.Color = c1
+				auraHighlight.FillColor = c1
+				auraHighlight.OutlineColor = c2
+			end)
+
+			local sec = addSection(visualsTab, "Auras", "Models")
+			sec:Toggle("Aura", "particles and glow around your character", function(on)
+				aura.on = on
+				build()
+				notify("Aura: " .. (on and "On" or "Off"), on and aura.style or "effect removed")
+			end)
+			sec:Select("Style", "right click - previous", { "Energy", "Flame", "Frost", "Void", "Rainbow", "Custom" }, aura.style, function(v)
+				aura.style = v
+				if aura.on then
+					build()
+				end
+			end)
+			sec:ColorPicker("Aura color", "used when Style = Custom", aura.custom, function(c)
+				aura.custom = c
+				if not loading then
+					aura.style = "Custom"
+				end
+				if aura.on then
+					build()
+				end
+			end)
+			sec:Slider("Intensity", 10, 100, aura.intensity, function(v)
+				aura.intensity = v
+				if aura.on then
+					build()
+				end
+			end, function(v)
+				return v .. "%"
+			end)
+			sec:Slider("Size", 50, 200, aura.size, function(v)
+				aura.size = v
+				if aura.on then
+					build()
+				end
+			end, function(v)
+				return v .. "%"
+			end)
+
+			stopAura = function()
+				aura.on = false
+				clear()
 			end
 		end
 		do
@@ -7800,7 +8190,7 @@ return (function(...)
 
 			local function build()
 				clear()
-				folder = create("Folder", { Name = "PZOrbs", Parent = workspace.CurrentCamera })
+				folder = create("Folder", { Name = "RockHubOrbs", Parent = workspace.CurrentCamera })
 				for i = 1, ob.count do
 					local c = orbColor(i, 0)
 					local basePart = part(Vector3.one * 0.62, Enum.Material.Neon, c, 0.35)
@@ -8007,7 +8397,7 @@ return (function(...)
 
 			local function build()
 				clear()
-				folder = create("Folder", { Name = "PZSkyWorms", Parent = workspace.CurrentCamera })
+				folder = create("Folder", { Name = "RockHubSkyWorms", Parent = workspace.CurrentCamera })
 				for i = 1, swatch.count do
 					worms[i] = newWorm()
 				end
@@ -8152,7 +8542,7 @@ return (function(...)
 				return ("rbxthumb://type=Asset&id=%d&w=150&h=150"):format(id)
 			end
 
-			local cursorGui = create("ScreenGui", { Name = "PZCursor", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 2000 })
+			local cursorGui = create("ScreenGui", { Name = "RockHubCursor", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 2000 })
 			pcall(function()
 				cursorGui.Parent = gui.Parent
 			end)
@@ -8542,7 +8932,7 @@ return (function(...)
 				for _, pt in ipairs(parts) do
 					offsets[pt] = handle.CFrame:ToObjectSpace(pt.CFrame)
 				end
-				m.Name = "PZGunSkin"
+				m.Name = "RockHubGunSkin"
 				m.Parent = workspace.CurrentCamera
 				cur = {
 					tool = tool,
@@ -8627,7 +9017,6 @@ return (function(...)
 			end
 		end
 		do
-			local HttpService = game:GetService("HttpService")
 			local skinCfg = {
 				sel = { Knife = nil, Gun = nil },
 				listType = "Knife",
@@ -9575,157 +9964,6 @@ return (function(...)
 				end
 				return a.name < b.name
 			end)
-			local saveAt
-
-			local function markDirty()
-				saveAt = os.clock() + 1
-			end
-
-			local onNewSkin
-			local discovered = {}
-
-			local function num(id)
-				return tostring(id):match("%d+") or tostring(id)
-			end
-
-			local function getMeshData(part)
-				if part:IsA("MeshPart") then
-					if part.MeshId == "" then
-						return
-					end
-					local meshSize = part.MeshSize
-					local scale = meshSize.Magnitude > 0 and part.Size / meshSize or Vector3.one
-					return part.MeshId, part.TextureID, scale
-				end
-				local specialMesh = part:FindFirstChildOfClass("SpecialMesh")
-				local fromSpecial = if specialMesh and specialMesh.MeshId ~= "" then function()
-					return specialMesh.MeshId, specialMesh.TextureId, specialMesh.Scale
-				end else nil
-				if fromSpecial then
-					return fromSpecial()
-				end
-			end
-
-			local liveCache = {}
-
-			local function cloneLive(part)
-				local ok, c = pcall(function()
-					return part:Clone()
-				end)
-				if not ok or not c then
-					return
-				end
-				for _, d in ipairs(c:GetDescendants()) do
-					if not (d:IsA("SurfaceAppearance") or d:IsA("DataModelMesh") or d:IsA("Decal")) then
-						d:Destroy()
-					end
-				end
-				c.Anchored = false
-				c.CanCollide = false
-				c.CanTouch = false
-				c.CanQuery = false
-				c.Massless = true
-				c.CastShadow = false
-				c.LocalTransparencyModifier = 0
-				c.Name = "PZ_Skin"
-				return c
-			end
-
-			local function registerSkin(part, weapon, owner, origin)
-				local meshId, texId, scale = getMeshData(part)
-				if not meshId then
-					return
-				end
-				local key = weapon .. ":" .. num(meshId) .. ":" .. num(texId)
-				local hasSA = part:FindFirstChildOfClass("SurfaceAppearance") ~= nil
-				if part:IsA("MeshPart") and not liveCache[key] then
-					liveCache[key] = cloneLive(part)
-					for _, a in pairs(rrL8) do
-						if a.key == key then
-							a.key = nil
-						end
-					end
-				end
-				local col = part.Color
-				local old = skinsByKey[key]
-				if old then
-					if not old.color then
-						old.color = { col.R, col.G, col.B }
-						old.mat = part.Material.Name
-						old.sa = hasSA
-						markDirty()
-					end
-					return
-				end
-				local s = {
-					key = key,
-					type = weapon,
-					mesh = meshId,
-					tex = texId,
-					color = { col.R, col.G, col.B },
-					mat = part.Material.Name,
-					sa = hasSA,
-					scale = { scale.X, scale.Y, scale.Z },
-					from = owner and owner.DisplayName or "?",
-					src = origin or "display",
-					t = os.time(),
-				}
-				table.insert(skins, s)
-				skinsByKey[key] = s
-				discovered[key] = true
-				markDirty()
-				if onNewSkin then
-					onNewSkin(s)
-				end
-			end
-
-			local function findOwner(part)
-				for _, c in ipairs(part:GetChildren()) do
-					if c:IsA("RigidConstraint") or c:IsA("Weld") or c:IsA("WeldConstraint") then
-						for _, prop in ipairs({ "Attachment0", "Attachment1", "Part0", "Part1" }) do
-							local ok, v = pcall(function()
-								return c[prop]
-							end)
-							if ok and v and not v:IsDescendantOf(part) then
-								local model = v:FindFirstAncestorOfClass("Model")
-								local plr = model and Players:GetPlayerFromCharacter(model)
-								if plr then
-									return plr
-								end
-							end
-						end
-					end
-				end
-			end
-
-			local function scanSkins()
-				local displays = workspace:FindFirstChild("WeaponDisplays")
-				if displays then
-					for _, d in ipairs(displays:GetChildren()) do
-						if d:IsA("BasePart") then
-							local weapon = d.Name:find("Knife") and "Knife" or (d.Name:find("Gun") and "Gun" or nil)
-							if weapon then
-								local owner = findOwner(d)
-								if owner ~= player then
-									registerSkin(d, weapon, owner, "display")
-								end
-							end
-						end
-					end
-				end
-				for _, plr in ipairs(Players:GetPlayers()) do
-					if plr ~= player and plr.Character then
-						for _, weapon in ipairs({ "Knife", "Gun" }) do
-							local tool = plr.Character:FindFirstChild(weapon)
-							local handle = tool and tool:FindFirstChild("Handle")
-							if handle and handle:IsA("BasePart") then
-								registerSkin(handle, weapon, plr, "tool")
-							end
-						end
-					end
-				end
-			end
-
 			local applied = {}
 
 			local function restore(part)
@@ -9764,8 +10002,8 @@ return (function(...)
 				local s = handle.Size
 				local axis = s.X >= s.Y and s.X >= s.Z and Vector3.xAxis or (s.Y >= s.Z and Vector3.yAxis or Vector3.zAxis)
 				local len = (s * axis).Magnitude / 2
-				local a0 = create("Attachment", { Name = "PZ_Trail0", Position = axis * len * 0.9, Parent = handle })
-				local a1 = create("Attachment", { Name = "PZ_Trail1", Position = -axis * len * 0.2, Parent = handle })
+				local a0 = create("Attachment", { Name = "RockHubTrail0", Position = axis * len * 0.9, Parent = handle })
+				local a1 = create("Attachment", { Name = "RockHubTrail1", Position = -axis * len * 0.2, Parent = handle })
 				return a0, a1
 			end
 
@@ -9777,7 +10015,7 @@ return (function(...)
 				local col = accentColor
 				if skinCfg.glow then
 					table.insert(a.fx, create("PointLight", {
-						Name = "PZ_Glow",
+						Name = "RockHubGlow",
 						Color = col,
 						Brightness = skinCfg.light / 25,
 						Range = 9,
@@ -9787,7 +10025,7 @@ return (function(...)
 				end
 				if skinCfg.sparkles then
 					table.insert(a.fx, create("ParticleEmitter", {
-						Name = "PZ_Sparkles",
+						Name = "RockHubSparkles",
 						Texture = "rbxasset://textures/particles/sparkles_main.dds",
 						LightEmission = 1,
 						Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 0) }),
@@ -9804,7 +10042,7 @@ return (function(...)
 					table.insert(a.fx, a0)
 					table.insert(a.fx, a1)
 					table.insert(a.fx, create("Trail", {
-						Name = "PZ_Trail",
+						Name = "RockHubTrail",
 						Attachment0 = a0,
 						Attachment1 = a1,
 						LightEmission = 1,
@@ -9891,26 +10129,7 @@ return (function(...)
 					applied[part] = a
 				end
 				a.key, a.size = s.key, skinCfg.size
-				local exists = liveCache[s.key]
-				if exists then
-					if a.mesh and a.orig then
-						a.mesh.MeshId = a.orig.MeshId
-						a.mesh.TextureId = a.orig.TextureId
-						a.mesh.Scale = a.orig.Scale
-					end
-					if a.overlay then
-						a.overlay:Destroy()
-					end
-					local f = calcScale({ scale = { 1, 1, 1 }, src = s.src }, kind).X
-					local p = exists:Clone()
-					p.Size = exists.Size * f
-					p.CFrame = part.CFrame
-					p.Parent = part
-					create("WeldConstraint", { Part0 = part, Part1 = p, Parent = p })
-					a.overlay = p
-					part.LocalTransparencyModifier = 1
-					a.liveUsed = true
-				elseif a.mesh and not (kind == "tool" and s.grip) then
+				if a.mesh and not (kind == "tool" and s.grip) then
 					if a.overlay then
 						a.overlay:Destroy()
 						a.overlay = nil
@@ -9940,7 +10159,7 @@ return (function(...)
 						offset = tool.Grip * s.grip:Inverse()
 					end
 					local p = create("Part", {
-						Name = "PZ_Skin",
+						Name = "RockHubSkin",
 						Size = Vector3.one * 0.2,
 						Transparency = 0,
 						CanCollide = false,
@@ -9994,7 +10213,7 @@ return (function(...)
 				end
 			end
 
-			local lastScan, lastSave = 0, 0
+			local lastScan = 0
 			connect(RunService.Heartbeat, function()
 				local now = os.clock()
 				if skinCfg.enabled and now - lastScan > 0.5 then
@@ -10657,15 +10876,6 @@ return (function(...)
 				end)
 			end
 
-			local function alive(p)
-				local c = p and p.Character
-				local h = c and c:FindFirstChild("HumanoidRootPart")
-				local hum = c and c:FindFirstChildOfClass("Humanoid")
-				if h and hum and hum.Health > 0 then
-					return h
-				end
-			end
-
 			local function findNearest(exclude)
 				local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 				if not myRoot then
@@ -10962,7 +11172,7 @@ return (function(...)
 				Parent = ring,
 			})
 			makeRound(mascot2)
-			local zzzLabel = create("TextLabel", {
+			create("TextLabel", {
 				Text = "zzz",
 				Font = Enum.Font.GothamBlack,
 				TextSize = 22,
@@ -11455,29 +11665,8 @@ return (function(...)
 			local lastDrop
 			local gunHolders = {}
 
-			local function findTool(p, name)
-				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
-			end
-
 			local function has(name)
 				return findTool(player, name)
-			end
-
-			local function inLobby(pos)
-				local lobby = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
-				if not lobby then
-					return false
-				end
-				local ok, cf, size = pcall(function()
-					return lobby:GetBoundingBox()
-				end)
-				if not ok then
-					return false
-				end
-				local rel = cf:PointToObjectSpace(pos)
-				local half = size / 2 + Vector3.new(10, 30, 10)
-				return math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z
 			end
 
 			local function dropPart(d)
@@ -11709,15 +11898,10 @@ return (function(...)
 			end
 		end
 		do
-			local fling = { autoSheriff = false, busy = false, cancel = false, nextScan = 0 }
+			local fling = { autoSheriff = false, busy = false, cancel = false, nextScan = 0, autoCharacter = nil, autoReadyAt = 0 }
 			local flungCharacters = {}
 			local roleCache, roleCacheAt = {}, 0
 			local activeCleanup
-
-			local function findTool(p, name)
-				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
-			end
 
 			local function refreshRoles()
 				if os.clock() - roleCacheAt < 1 then
@@ -12045,9 +12229,22 @@ return (function(...)
 				fling.nextScan = os.clock() + 0.8
 				local target = findRole("Sheriff")
 				local char = target and target.Character
-				if not char or flungCharacters[char] then
+				local targetRoot = char and char:FindFirstChild("HumanoidRootPart")
+				local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+				if not char or not targetRoot or not myRoot or flungCharacters[char] or inLobby(targetRoot.Position) or inLobby(myRoot.Position) then
+					fling.autoCharacter = nil
+					fling.autoReadyAt = 0
 					return
 				end
+				if fling.autoCharacter ~= char then
+					fling.autoCharacter = char
+					fling.autoReadyAt = os.clock() + 2.5
+					return
+				end
+				if os.clock() < fling.autoReadyAt or target.Character ~= char or not hasRole(target, "Sheriff") then
+					return
+				end
+				fling.autoReadyAt = os.clock() + 2.5
 				task.spawn(function()
 					if flingPlayer(target, "Sheriff", false) then
 						flungCharacters[char] = true
@@ -12064,6 +12261,8 @@ return (function(...)
 			sec:Toggle("Auto Fling Sheriff", "fling each sheriff down once per life", function(on)
 				fling.autoSheriff = on
 				fling.nextScan = 0
+				fling.autoCharacter = nil
+				fling.autoReadyAt = 0
 				if not on then
 					fling.cancel = true
 				end
@@ -12075,6 +12274,10 @@ return (function(...)
 			sec:Button("Fling Murderer", "fling the current murderer down", function()
 				flingRole("Murderer", true)
 			end)
+			playerFlingAction = function(target)
+				local role = hasRole(target, "Sheriff") and "Sheriff" or (hasRole(target, "Murderer") and "Murderer" or "Player")
+				return flingPlayer(target, role, true)
+			end
 
 			stopRoleFling = function()
 				fling.autoSheriff = false
@@ -12090,42 +12293,12 @@ return (function(...)
 			local cancelKill = false
 			local lastAutoKill = 0
 
-			local function findTool(p, name)
-				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
-			end
-
-			local function inLobby(pos)
-				local lobby = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
-				if not lobby then
-					return false
-				end
-				local ok, cf, size = pcall(function()
-					return lobby:GetBoundingBox()
-				end)
-				if not ok then
-					return false
-				end
-				local rel = cf:PointToObjectSpace(pos)
-				local half = size / 2 + Vector3.new(10, 30, 10)
-				return math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z
-			end
-
-			local function alive(p)
-				local char = p.Character
-				local hrp = char and char:FindFirstChild("HumanoidRootPart")
-				local hum = char and char:FindFirstChildOfClass("Humanoid")
-				if hrp and hum and hum.Health > 0 then
-					return hrp, hum, char
-				end
-			end
-
-			local function getTargets(sheriffOnly, origin)
+			local function getTargets(sheriffOnly, origin, includeLobby)
 				local list = {}
 				for _, p in ipairs(Players:GetPlayers()) do
 					if p ~= player then
 						local hrp = alive(p)
-						if hrp and not inLobby(hrp.Position) then
+						if hrp and (includeLobby or not inLobby(hrp.Position)) then
 							local gun = findTool(p, "Gun") ~= nil
 							if not sheriffOnly or gun then
 								table.insert(list, { p = p, gun = gun, d = (hrp.Position - origin).Magnitude })
@@ -12200,7 +12373,7 @@ return (function(...)
 						d.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 					end
 				end
-				clone.Name = "PZStandIn"
+				clone.Name = "RockHubStandIn"
 				clone.Parent = workspace.CurrentCamera
 				return clone
 			end
@@ -12227,7 +12400,7 @@ return (function(...)
 					end
 					return
 				end
-				local list = getTargets(sheriffOnly, hrp.Position)
+				local list = getTargets(sheriffOnly, hrp.Position, onlyList ~= nil)
 				if onlyList then
 					local filtered = {}
 					for _, e in ipairs(list) do
@@ -12318,6 +12491,9 @@ return (function(...)
 					notify("Kill All", ("killed %d/%d in %.2fs"):format(killed, #list, os.clock() - gradStart2))
 				end
 			end
+			playerKnifeKill = function(target)
+				killAll(false, false, { target })
+			end
 
 			connect(RunService.Heartbeat, function()
 				if not autoKill or killing or os.clock() - lastAutoKill < 2 then
@@ -12342,9 +12518,13 @@ return (function(...)
 			local fpvIds = { 124994246147928, 129274863429961, 79445961621887 }
 			local fpvFlip = {}
 			local droneKind = "Shahed"
+			local droneImpact = "Fling"
 			local droneCache = {}
 			local droneTemplate, droneLoading
 			local soundCache = {}
+			local soundsLoading = false
+			local ContentProvider = game:GetService("ContentProvider")
+			local SoundService = game:GetService("SoundService")
 
 			local function getParts(m)
 				local parts = {}
@@ -12399,18 +12579,16 @@ return (function(...)
 				if size.Z > size.X then
 					axis, sidebar2 = Vector3.zAxis, Vector3.xAxis
 				end
-				local moment, weight = 0, 0
+				local moment = 0
 				for _, b in ipairs(boxes) do
 					local a = b[2]:Dot(axis) * b[2]:Dot(sidebar2)
 					moment += (b[1] - center):Dot(axis) * a
-					weight += a
 				end
 				local sign = moment >= 0 and 1 or -1
 				if shahedFlip[id] then
 					sign = shahedFlip[id]
 				end
 				m.WorldPivot = CFrame.lookAt(center, center - axis * sign)
-				warn(("[rockhub] Shahed model %s: %d parts, size %s, tail %s, shift %.2f"):format(tostring(id), #parts, tostring(size), tostring(axis * sign), moment / math.max(weight, 0.001)))
 				return math.max(size.X, size.Z)
 			end
 
@@ -12484,28 +12662,43 @@ return (function(...)
 					sign = fpvFlip[id]
 				end
 				m.WorldPivot = CFrame.lookAt(center, center - axis * sign)
-				local items = {}
-				for i = 1, math.min(#parts, 25) do
-					items[i] = parts[i].Name
-				end
-				warn(("[rockhub] FPV model %s: %d parts, size %s, warhead %s, tail %s | %s"):format(tostring(id), #parts, tostring(size), best and best:GetFullName() or "none", tostring(axis * sign), table.concat(items, ",")))
 				return math.max(size.X, size.Z)
 			end
 
 			local function pickSound(list)
-				local ContentProvider = game:GetService("ContentProvider")
 				for _, id in ipairs(list) do
 					local s = Instance.new("Sound")
 					s.SoundId = "rbxassetid://" .. id
+					s.Volume = 0
+					s.Parent = SoundService
 					local loaded = false
-					pcall(function()
+					local ok = pcall(function()
 						ContentProvider:PreloadAsync({ s }, function(_, status)
 							loaded = status == Enum.AssetFetchStatus.Success
 						end)
 					end)
 					s:Destroy()
-					if loaded then
+					if ok and loaded then
 						return "rbxassetid://" .. id
+					end
+				end
+				return "rbxassetid://" .. list[1]
+			end
+
+			local function ensureSounds()
+				while soundsLoading do
+					task.wait()
+				end
+				for key in pairs(soundIds) do
+					if not soundCache[key] then
+						soundsLoading = true
+						for nextKey, list in pairs(soundIds) do
+							if not soundCache[nextKey] then
+								soundCache[nextKey] = pickSound(list)
+							end
+						end
+						soundsLoading = false
+						break
 					end
 				end
 			end
@@ -12515,18 +12708,12 @@ return (function(...)
 					task.wait(0.1)
 				end
 				local kind = override or droneKind
+				ensureSounds()
 				if droneCache[kind] then
 					droneTemplate = droneCache[kind]
 					return droneTemplate
 				end
 				droneLoading = true
-				for key, list in pairs(soundIds) do
-					if not soundCache[key] then
-						task.spawn(function()
-							soundCache[key] = pickSound(list)
-						end)
-					end
-				end
 				local isFpv = kind == "FPV"
 				local m, usedId
 				for _, id in ipairs(isFpv and fpvIds or shahedIds) do
@@ -12574,7 +12761,7 @@ return (function(...)
 					p.CanQuery = false
 					p.CanTouch = false
 				end
-				m.Name = "PZShahed"
+				m.Name = "RockHubShahed"
 				droneCache[kind] = m
 				droneTemplate = droneCache[droneKind]
 				droneLoading = false
@@ -12582,21 +12769,33 @@ return (function(...)
 			end
 
 			local function playSound(key, parent, props)
-				if not soundCache[key] then
+				local soundId = soundCache[key]
+				if not soundId then
 					return
 				end
 				local s = Instance.new("Sound")
-				s.SoundId = soundCache[key]
+				s.SoundId = soundId
 				for k, v in pairs(props) do
 					s[k] = v
 				end
 				s.Parent = parent
 				s:Play()
+				if not s.IsLoaded then
+					task.spawn(function()
+						local deadline = os.clock() + 3
+						while s.Parent and not s.IsLoaded and os.clock() < deadline do
+							task.wait(0.05)
+						end
+						if s.Parent and not s.IsPlaying then
+							s:Play()
+						end
+					end)
+				end
 				return s
 			end
 
 			local function shakeCamera(intensity, hideAfter)
-				local name = "PZShahedShake" .. math.random(1000000)
+				local name = "RockHubShahedShake" .. math.random(1000000)
 				local gradStart2, last = os.clock(), CFrame.new()
 				RunService:BindToRenderStep(name, Enum.RenderPriority.Camera.Value + 1, function()
 					local cam = workspace.CurrentCamera
@@ -12686,7 +12885,7 @@ return (function(...)
 			local function showSignalLost(targetName, flightTime)
 				local font = Enum.Font.Code
 				local root = create("CanvasGroup", {
-					Name = "PZSignalLost",
+					Name = "RockHubSignalLost",
 					Position = UDim2.fromOffset(0, -100),
 					Size = UDim2.new(1, 0, 1, 200),
 					BackgroundColor3 = Color3.new(1, 1, 1),
@@ -12909,86 +13108,6 @@ return (function(...)
 				end
 			end
 
-			local function launchDrone(p)
-				local th = alive(p)
-				if not th then
-					return
-				end
-				local drone = droneTemplate:Clone()
-				local basePart = drone:FindFirstChildWhichIsA("BasePart", true)
-				local prop = drone:FindFirstChild("Prop", true)
-				local targetPos = th.Position
-				local angle = math.random() * math.pi * 2
-				local pos = targetPos + Vector3.new(math.cos(angle) * 260, 110, math.sin(angle) * 260)
-				local dir = (Vector3.new(targetPos.X, pos.Y, targetPos.Z) - pos).Unit
-				local bank, gradStart2 = 0, os.clock()
-				drone:PivotTo(CFrame.lookAt(pos, pos + dir))
-				drone.Parent = workspace.CurrentCamera
-				local engine = playSound("engine", basePart, { Looped = true, Volume = 1.6, RollOffMinDistance = 15, RollOffMaxDistance = 700 })
-				local conn
-				conn = RunService.RenderStepped:Connect(function(dt)
-					dt = math.min(dt, 0.05)
-					local h = alive(p)
-					if h then
-						targetPos = h.Position
-					end
-					local flatDist = Vector3.new(targetPos.X - pos.X, 0, targetPos.Z - pos.Z).Magnitude
-					local dist = (targetPos - pos).Magnitude
-					local aimPos = targetPos + Vector3.new(0, math.clamp(flatDist * 0.35 - 10, 0, 80), 0)
-					local want = (aimPos - pos).Unit
-					local old = dir
-					dir = dir:Lerp(want, 1 - math.exp(-dt * (dist < 30 and 14 or 3.5))).Unit
-					local speed = flatDist < 60 and 140 or 90
-					local turn = old:Cross(dir).Y / math.max(dt, 0.001)
-					bank += (math.clamp(turn * 0.6, -0.9, 0.9) - bank) * math.min(dt * 5, 1)
-					local step = speed * dt
-					local arrived = dist <= math.max(step, 4) or os.clock() - gradStart2 > 10
-					if arrived then
-						conn:Disconnect()
-						if engine then
-							engine:Stop()
-						end
-						drone:Destroy()
-						local at = h and targetPos or pos
-						task.spawn(finishTarget, p)
-						explode(at)
-						return
-					end
-					pos += dir * step
-					drone:PivotTo(CFrame.lookAt(pos, pos + dir) * CFrame.Angles(0, 0, bank))
-					if prop then
-						prop.CFrame = prop.CFrame * CFrame.Angles(0, 0, dt * 45)
-					end
-				end)
-			end
-
-			local function launchShahed(all)
-				local hrp = alive(player)
-				if not hrp then
-					return
-				end
-				if not findTool(player, "Knife") then
-					notify("Shahed", "you're not the murderer")
-					return
-				end
-				local list = getTargets(false, hrp.Position)
-				if #list == 0 then
-					notify("Shahed", "nobody to hit")
-					return
-				end
-				if not droneTemplate then
-					notify("Shahed", "loading the drone...")
-					loadDrone()
-				end
-				if not all then
-					list = { list[1] }
-				end
-				notify("Shahed", all and ("%d drones in the air"):format(#list) or "inbound: " .. list[1].p.DisplayName)
-				for i, e in ipairs(list) do
-					task.delay((i - 1) * 0.35, launchDrone, e.p)
-				end
-			end
-
 			local droneBusy = false
 			local desyncPaused = false
 
@@ -13000,8 +13119,9 @@ return (function(...)
 				if not hrp then
 					return
 				end
-				if not findTool(player, "Knife") then
-					notify("Shahed", "you're not the murderer")
+				local impactMode = droneImpact
+				if impactMode == "Kill" and not findTool(player, "Knife") then
+					notify("Drone", "Kill impact requires the murderer knife")
 					return
 				end
 				if not droneTemplate then
@@ -13059,7 +13179,7 @@ return (function(...)
 				local engine = playSound(isFpv and "fpv" or "engine", basePart, { Looped = true, Volume = 1, RollOffMinDistance = 15, RollOffMaxDistance = 700 })
 				local osd, osdLabels
 				if isFpv then
-					osd = create("Frame", { Name = "PZShahedOsd", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
+					osd = create("Frame", { Name = "RockHubShahedOsd", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = gui })
 					osdLabels = {}
 
 					local function o(key, anchor, pos2, align)
@@ -13083,11 +13203,11 @@ return (function(...)
 					o("alt", Vector2.new(0, 1), UDim2.new(0, 30, 1, -80), Enum.TextXAlignment.Left)
 					o("spd", Vector2.new(1, 1), UDim2.new(1, -30, 1, -80), Enum.TextXAlignment.Right)
 					o("mode", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 70), Enum.TextXAlignment.Center)
-					osdLabels.mode.Text = "ARMED   ACRO"
-					osdLabels.mode.TextColor3 = Color3.fromRGB(255, 80, 70)
+					osdLabels.mode.Text = impactMode:upper() .. "   ACRO"
+					osdLabels.mode.TextColor3 = impactMode == "Kill" and Color3.fromRGB(255, 80, 70) or Color3.fromRGB(110, 190, 255)
 				end
 				local hud2 = create("Frame", {
-					Name = "PZShahedHud",
+					Name = "RockHubShahedHud",
 					AnchorPoint = Vector2.new(0.5, 1),
 					Position = UDim2.new(0.5, 0, 1, -24),
 					Size = UDim2.fromOffset(0, 30),
@@ -13109,7 +13229,7 @@ return (function(...)
 					Parent = hud2,
 				})
 				local crosshair = create("Frame", {
-					Name = "PZShahedCross",
+					Name = "RockHubShahedCross",
 					AnchorPoint = Vector2.new(0.5, 0.5),
 					Position = UDim2.fromScale(0.5, 0.5),
 					Size = UDim2.fromOffset(6, 6),
@@ -13147,7 +13267,7 @@ return (function(...)
 						return
 					end
 					local frame = create("Frame", {
-						Name = "PZShahedPip",
+						Name = "RockHubShahedPip",
 						AnchorPoint = Vector2.new(1, 1),
 						Position = UDim2.new(1, -20, 1, -20),
 						Size = UDim2.fromOffset(300, 190),
@@ -13331,7 +13451,7 @@ return (function(...)
 					local droneCopy = droneTemplate:Clone()
 					droneCopy.Parent = viewport
 					local recLabel = create("TextLabel", {
-						Name = "PZShahedRec",
+						Name = "RockHubShahedRec",
 						AnchorPoint = Vector2.new(0.5, 0),
 						Position = UDim2.new(0.5, 0, 0, 14),
 						Size = UDim2.fromOffset(220, 18),
@@ -13460,7 +13580,7 @@ return (function(...)
 					for _, c in ipairs(connections2) do
 						c:Disconnect()
 					end
-					RunService:UnbindFromRenderStep("PZShahedPilot")
+					RunService:UnbindFromRenderStep("RockHubShahedPilot")
 					if engine then
 						engine:Stop()
 					end
@@ -13505,7 +13625,7 @@ return (function(...)
 					end
 					done = true
 					local best, bestDist = nil, 16
-					for _, e in ipairs(getTargets(false, at)) do
+					for _, e in ipairs(getTargets(false, at, true)) do
 						local th = alive(e.p)
 						local d = th and (th.Position - at).Magnitude
 						if d and d < bestDist then
@@ -13524,11 +13644,18 @@ return (function(...)
 						task.delay(2.5, playReplay, clip)
 					end
 					if best then
-						task.spawn(finishTarget, best)
+						if impactMode == "Kill" then
+							task.spawn(finishTarget, best)
+						end
 					end
 					showSignalLost(best and best.DisplayName, os.clock() - gradStart2)
 					explode(at)
-					task.spawn(endFlight, true)
+					if best and impactMode == "Fling" and playerFlingAction then
+						endFlight(false)
+						task.spawn(playerFlingAction, best)
+					else
+						task.spawn(endFlight, true)
+					end
 				end
 
 				local function abort()
@@ -13604,7 +13731,7 @@ return (function(...)
 					return UserInputService:IsKeyDown(k)
 				end
 
-				RunService:BindToRenderStep("PZShahedPilot", Enum.RenderPriority.Last.Value + 5, function(dt)
+				RunService:BindToRenderStep("RockHubShahedPilot", Enum.RenderPriority.Last.Value + 5, function(dt)
 					if done then
 						return
 					end
@@ -13647,7 +13774,7 @@ return (function(...)
 					velocity = velocity:Lerp(dir * speed + Vector3.yAxis * vert, math.min(dt * (isFpv and 4.5 or 3), 1))
 					bank += (math.clamp(yawDelta / math.max(dt, 0.001) * 0.35, -0.9, 0.9) - bank) * math.min(dt * 5, 1)
 					local step = velocity * dt
-					for _, e in ipairs(getTargets(false, pos)) do
+					for _, e in ipairs(getTargets(false, pos, true)) do
 						local th = alive(e.p)
 						if th and (th.Position - pos).Magnitude < 6 then
 							detonate(th.Position)
@@ -13683,7 +13810,7 @@ return (function(...)
 					camCf = camCf:Lerp(camGoal, math.min(dt * (fpView and 25 or 12), 1))
 					cam.CFrame = camCf
 					local pipTarget, bestEta
-					for _, e in ipairs(getTargets(false, pos)) do
+					for _, e in ipairs(getTargets(false, pos, true)) do
 						local th = alive(e.p)
 						if th then
 							local delta = th.Position - pos
@@ -13720,22 +13847,22 @@ return (function(...)
 				end
 				warn("[rockhub] Shahed: " .. tostring(err))
 				notify("Shahed error", tostring(err):match("^[^\n]*"):sub(-110))
-				droneBusy = false
+				droneBusy, droneLoading = false, false
 				if desyncPaused then
 					desyncPaused = false
 					resumeDesync()
 				end
 				pcall(function()
-					RunService:UnbindFromRenderStep("PZShahedPilot")
+					RunService:UnbindFromRenderStep("RockHubShahedPilot")
 				end)
-				for _, n in ipairs({ "PZShahedHud", "PZShahedCross", "PZShahedOsd", "PZShahedRec" }) do
+				for _, n in ipairs({ "RockHubShahedHud", "RockHubShahedCross", "RockHubShahedOsd", "RockHubShahedRec" }) do
 					local g = gui:FindFirstChild(n)
 					if g then
 						g:Destroy()
 					end
 				end
 				for _, d in ipairs(workspace.CurrentCamera:GetChildren()) do
-					if d.Name == "PZShahed" then
+					if d.Name == "RockHubShahed" then
 						d:Destroy()
 					end
 				end
@@ -13776,7 +13903,10 @@ return (function(...)
 				droneKind = v
 				droneTemplate = droneCache[v]
 			end)
-			droneSection:Button("Launch Drone", "rock hub exclusive - you fly it", function()
+			droneSection:Segmented("Impact", { "Kill", "Fling" }, droneImpact, function(v)
+				droneImpact = v
+			end)
+			droneSection:Button("Launch Drone", "Kill needs the knife; Fling works for every role", function()
 				task.spawn(launchDroneSafe)
 			end)
 		end
@@ -13881,11 +14011,8 @@ return (function(...)
 				local facing = CFrame.lookAt(root.Position, Vector3.new(murdererRoot.Position.X, root.Position.Y, murdererRoot.Position.Z))
 				for _, offset in ipairs(quietOffsets) do
 					local pos = (facing * CFrame.new(offset)).Position
-					local quietRet = if not isBlocked(root.Position, pos) and not isBlocked(pos, murdererRoot.Position) then function()
+					if not isBlocked(root.Position, pos) and not isBlocked(pos, murdererRoot.Position) then
 						return CFrame.lookAt(pos, murdererRoot.Position)
-					end else nil
-					if quietRet then
-						return quietRet()
 					end
 				end
 			end
@@ -13978,21 +14105,12 @@ return (function(...)
 				aimParams.FilterDescendantsInstances = { myChar, murdererRoot.Parent, workspace.CurrentCamera }
 				for _, offset in ipairs(peekOffsets) do
 					local pos = (murdererRoot.CFrame * CFrame.new(offset)).Position
-					local dir = murdererRoot.Position - pos
-					local peekRet = if not isBlocked(pos, murdererRoot.Position) then function()
+					if not isBlocked(pos, murdererRoot.Position) then
 						return CFrame.lookAt(pos, murdererRoot.Position)
-					end else nil
-					if peekRet then
-						return peekRet()
 					end
 				end
 				local behind = murdererRoot.CFrame * CFrame.new(0, 0, 3)
 				return CFrame.lookAt(behind.Position, murdererRoot.Position)
-			end
-
-			local function findTool(p, name)
-				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
 			end
 
 			local function getMurderer()
@@ -14016,23 +14134,10 @@ return (function(...)
 					return remote, "beam"
 				end
 				for _, d in ipairs(gun:GetDescendants()) do
-					local remoteRet = if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and d.Name:lower():find("shoot") then function()
+					if (d:IsA("RemoteEvent") or d:IsA("RemoteFunction")) and d.Name:lower():find("shoot") then
 						return d, "shoot"
-					end else nil
-					if remoteRet then
-						return remoteRet()
 					end
 				end
-			end
-
-			local function listGunRemotes(gun)
-				local items = {}
-				for _, d in ipairs(gun:GetDescendants()) do
-					if d:IsA("RemoteEvent") or d:IsA("RemoteFunction") or d:IsA("BindableFunction") or d:IsA("BindableEvent") then
-						table.insert(items, d:GetFullName():gsub("^.-Gun%.", "Gun.") .. " (" .. d.ClassName .. ")")
-					end
-				end
-				return items
 			end
 
 			local function equipGun()
@@ -14101,9 +14206,7 @@ return (function(...)
 					gunRemote, kind = findGunRemote(gun)
 				end
 				if not gunRemote then
-					local items = listGunRemotes(gun)
-					print("[rock hub] gun remotes:", #items > 0 and table.concat(items, " | ") or "none")
-					notify("Shoot Murderer", "gun remote not found - check F9 console")
+					notify("Shoot Murderer", "gun remote not found")
 					return
 				end
 				busy = true
@@ -14128,7 +14231,6 @@ return (function(...)
 						target = murdererChar:FindFirstChild("UpperTorso") or murdererChar:FindFirstChild("Torso") or murdererRoot
 					end
 					local v = murdererRoot.AssemblyLinearVelocity
-					local ping = getPing() / 1000
 					local lead = silentAim.pred / 1000
 					return target.Position + Vector3.new(v.X, v.Y * 0.5, v.Z) * lead
 				end
@@ -14205,7 +14307,9 @@ return (function(...)
 							return "(event, no reply)"
 						end
 					end)
-					print(("[rock hub] shot via %s (%s) aim=%s spoof=%s desync=%s path=%s -> %s %s"):format(gunRemote:GetFullName(), kind, tostring(aimPos), tostring(wbSpot ~= nil), tostring(desynced), tostring(false), ok and "ok" or "ERROR", tostring(res)))
+					if not ok then
+						warn("[rockhub] shot failed: " .. tostring(res))
+					end
 				end)
 				if wallbang then
 					local t = os.clock()
@@ -14223,6 +14327,13 @@ return (function(...)
 				end
 				busy = false
 				resumeDesync()
+			end
+			playerGunKill = function(target)
+				if not target or not findTool(target, "Knife") then
+					notify("Kill", "the sheriff can only shoot the murderer")
+					return
+				end
+				shootMurderer(true)
 			end
 
 			local disabledScripts = {}
@@ -14347,7 +14458,6 @@ return (function(...)
 				local murdererChar = murdererRoot.Parent
 				local target = murdererChar:FindFirstChild("UpperTorso") or murdererChar:FindFirstChild("Torso") or murdererRoot
 				local v = murdererRoot.AssemblyLinearVelocity
-				local ping = getPing() / 1000
 				local lead = silentAim.pred / 1000
 				local aimPos = target.Position + Vector3.new(v.X, v.Y * 0.5, v.Z) * lead
 				local cam = workspace.CurrentCamera
@@ -14371,7 +14481,6 @@ return (function(...)
 					RunService.RenderStepped:Wait()
 					mousemoveabs(old.X, old.Y)
 				end
-				print(("[rock hub] native shot at %s (lead %.0fms, %s)"):format(tostring(aimPos), lead * 1000, locked and "camera" or "cursor"))
 				local murdererHum = murdererChar:FindFirstChildOfClass("Humanoid")
 				if murdererHum then
 					task.spawn(function()
@@ -14435,6 +14544,10 @@ return (function(...)
 
 				local hist = {}
 				connect(RunService.Heartbeat, function()
+					if not silentAim.on then
+						table.clear(hist)
+						return
+					end
 					local _, murd = getMurderer()
 					local now = os.clock()
 					for h in pairs(hist) do
@@ -14508,8 +14621,6 @@ return (function(...)
 					return fallbackAim or murdererRoot.Position + leadOffset
 				end
 
-				local logShot
-
 				local function watchHit(murdererChar, usedWallbang)
 					local murdererHum = murdererChar and murdererChar:FindFirstChildOfClass("Humanoid")
 					if not murdererHum then
@@ -14522,7 +14633,6 @@ return (function(...)
 								if usedWallbang then
 									reportWallbang(true)
 								end
-								logShot(("  RESULT hit (%.2fs)"):format(os.clock() - t))
 								notify("Silent Aimbot", "hit")
 								return
 							end
@@ -14531,82 +14641,9 @@ return (function(...)
 						if usedWallbang then
 							reportWallbang(false)
 						end
-						logShot(("  RESULT miss (health %.0f)"):format(murdererHum.Health))
 						notify("Silent Aimbot", silentAim.auto and "miss" or "miss - try changing Prediction")
 					end)
 				end
-
-				local guiAlive, pendingChecks = true, {}
-				local pendingLogs, logLines, lastLogAt = {}, {}, 0
-				local lastGunFired = 0
-
-				local function fmt(p)
-					if typeof(p) ~= "Vector3" then
-						return tostring(p)
-					end
-					return ("(%.1f, %.1f, %.1f)"):format(p.X, p.Y, p.Z)
-				end
-
-				logShot = function(s)
-					table.insert(logLines, os.date("%H:%M:%S ") .. s)
-					while #logLines > 200 do
-						table.remove(logLines, 1)
-					end
-					if writefile then
-						pcall(writefile, "rockhub_shots.txt", table.concat(logLines, "\n"))
-					end
-				end
-
-				local function fmtArgs(...)
-					local args, out = table.pack(...), {}
-					for i = 1, args.n do
-						local x = args[i]
-						local ty = typeof(x)
-						if ty == "Vector3" then
-							out[i] = fmt(x)
-						elseif ty == "CFrame" then
-							out[i] = "CF" .. fmt(x.Position)
-						elseif ty == "Instance" then
-							out[i] = x:GetFullName()
-						else
-							out[i] = ty .. " " .. tostring(x)
-						end
-					end
-					return table.concat(out, " | ")
-				end
-
-				for _, path in ipairs({ { "WeaponEvents", "GunBeam" }, { "ClientServices", "WeaponService", "GunFired" } }) do
-					task.spawn(function()
-						local ReplicatedStorage = game:GetService("ReplicatedStorage")
-						for _, n in ipairs(path) do
-							ReplicatedStorage = ReplicatedStorage and ReplicatedStorage:WaitForChild(n, 10)
-						end
-						if ReplicatedStorage and ReplicatedStorage:IsA("RemoteEvent") then
-							connect(ReplicatedStorage.OnClientEvent, function(...)
-								local h = ...
-								local ch = player.Character
-								if ReplicatedStorage.Name == "GunFired" and typeof(h) == "Instance" and ch and h:IsDescendantOf(ch) then
-									lastGunFired = os.clock()
-								end
-								if os.clock() - lastLogAt < 2 then
-									local _, murdererRoot = getMurderer()
-									logShot(("  SERVER %s: %s | murderer now=%s"):format(ReplicatedStorage.Name, fmtArgs(...), murdererRoot and fmt(murdererRoot.Position) or "none"))
-								end
-							end)
-						end
-					end)
-				end
-				connect(RunService.Heartbeat, function()
-					guiAlive = gui.Parent ~= nil
-					while #pendingLogs > 0 do
-						lastLogAt = os.clock()
-						logShot(table.remove(pendingLogs, 1))
-					end
-					while #pendingChecks > 0 do
-						local check = table.remove(pendingChecks, 1)
-						watchHit(check[1], check[2])
-					end
-				end)
 
 				local function canHit(origin, murdererChar, target)
 					rayParams.FilterDescendantsInstances = withPassthrough(player.Character, workspace.CurrentCamera)
@@ -14653,7 +14690,7 @@ return (function(...)
 
 				local function redirectAim(res)
 					lastRedirect = os.clock()
-					if not ((silentAim.on or os.clock() < forceAimUntil) and guiAlive) then
+					if not ((silentAim.on or os.clock() < forceAimUntil) and gui.Parent) then
 						return res
 					end
 					if busy then
@@ -14692,7 +14729,6 @@ return (function(...)
 					if not bodyVisible and not muzzleInWall and (murdererRoot.Position - muzzle).Magnitude < 6 then
 						bodyVisible = true
 					end
-					local reason = (muzzleInWall and "muzzle-in-wall " or "") .. (bodyVisible and "" or "body-covered")
 					local pathUsed = false
 					if a then
 						local murdererChar = murdererRoot.Parent
@@ -14709,7 +14745,6 @@ return (function(...)
 							if (o - murdererRoot.Position).Magnitude >= 4 and canHit(o, murdererChar, cur) and canHit(o, murdererChar, predicted) then
 								pathUsed = true
 								usedWallbang = muzzleInWall or not bodyVisible
-								reason = reason .. " path"
 								local oldAttCf = a.CFrame
 								a.WorldPosition = o
 								task.defer(function()
@@ -14725,7 +14760,6 @@ return (function(...)
 						local p = findDirectSpot(murdererRoot, muzzle)
 						if p then
 							usedWallbang = true
-							reason = reason .. " direct"
 							local oldAttCf = a.CFrame
 							a.WorldPosition = p
 							task.defer(function()
@@ -14737,10 +14771,7 @@ return (function(...)
 						end
 					end
 					local aimPos = predictPos(murdererRoot, muzzle)
-					table.insert(pendingChecks, { murdererRoot.Parent, usedWallbang })
-					local v = murdererRoot.AssemblyLinearVelocity
-					local rp = typeof(res) == "CFrame" and res.Position or res
-					table.insert(pendingLogs, ("SHOT ping=%dms lead=%dms wall=%s wb=%s(%s) | origin=%s | aim=%s | murderer=%s vel=%s dist=%.1f | cursor=%s"):format(getPing(), silentAim.pred, tostring(isBlocked(muzzle, murdererRoot.Position)), tostring(usedWallbang), reason, fmt(muzzle), fmt(aimPos), fmt(murdererRoot.Position), fmt(v), (murdererRoot.Position - muzzle).Magnitude, fmt(rp)))
+					watchHit(murdererRoot.Parent, usedWallbang)
 					if typeof(res) == "Vector3" then
 						return aimPos
 					end
@@ -14755,13 +14786,9 @@ return (function(...)
 				local function safeRedirect(res)
 					local ok2, r = pcall(redirectAim, res)
 					if ok2 then
-						if r ~= res then
-							local sentPos = typeof(r) == "CFrame" and r.Position or r
-							table.insert(pendingLogs, "  sent=" .. fmt(sentPos))
-						end
 						return r
 					end
-					table.insert(pendingLogs, "  REDIRECT ERROR: " .. tostring(r))
+					warn("[rockhub] aim redirect failed: " .. tostring(r))
 					return res
 				end
 
@@ -14834,22 +14861,6 @@ return (function(...)
 			local autoShoot = false
 			local lastAutoKill = 0
 
-			local function inLobby(pos)
-				local lobby = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
-				if not lobby then
-					return false
-				end
-				local ok, cf, size = pcall(function()
-					return lobby:GetBoundingBox()
-				end)
-				if not ok then
-					return false
-				end
-				local rel = cf:PointToObjectSpace(pos)
-				local half = size / 2 + Vector3.new(10, 30, 10)
-				return math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z
-			end
-
 			connect(RunService.Heartbeat, function()
 				if not autoShoot or busy or os.clock() - lastAutoKill < 2 then
 					return
@@ -14897,27 +14908,6 @@ return (function(...)
 				if hum then
 					cam.CameraSubject = hum
 				end
-			end
-
-			local function findTool(p, name)
-				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
-				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
-			end
-
-			local function inLobby(pos)
-				local lobby = workspace:FindFirstChild("Lobby") or workspace:FindFirstChild("RegularLobby")
-				if not lobby then
-					return false
-				end
-				local ok, cf, size = pcall(function()
-					return lobby:GetBoundingBox()
-				end)
-				if not ok then
-					return false
-				end
-				local rel = cf:PointToObjectSpace(pos)
-				local half = size / 2 + Vector3.new(10, 30, 10)
-				return math.abs(rel.X) <= half.X and math.abs(rel.Y) <= half.Y and math.abs(rel.Z) <= half.Z
 			end
 
 			connect(RunService.Heartbeat, function()
@@ -15125,7 +15115,7 @@ return (function(...)
 			local function buildGhost(char)
 				clearGhost()
 				vis.char = char
-				vis.folder = create("Model", { Name = "PZDesyncGhost", Parent = workspace.CurrentCamera })
+				vis.folder = create("Model", { Name = "RockHubDesyncGhost", Parent = workspace.CurrentCamera })
 				for _, src in ipairs(char:GetChildren()) do
 					if src:IsA("BasePart") and src.Name ~= "HumanoidRootPart" then
 						local ok, g = pcall(function()
@@ -15243,6 +15233,302 @@ return (function(...)
 				desyncCfg.tracer = on
 			end)
 			tracerToggle.Set(true, true)
+		end
+		do
+			local page = playersTab.page
+			playersTab.custom = true
+			local cards = {}
+			local roleCache = {}
+			local roleRemote
+			local spectating
+			local bangTarget, bangTrack
+			local bangStarted = 0
+
+			local function roleOf(p)
+				if findTool(p, "Knife") then
+					return "Murderer", Color3.fromRGB(255, 80, 80)
+				end
+				if findTool(p, "Gun") then
+					return "Sheriff", Color3.fromRGB(80, 160, 255)
+				end
+				local role = roleCache[p.Name]
+				if role == "Murderer" then
+					return "Murderer", Color3.fromRGB(255, 80, 80)
+				end
+				if role == "Sheriff" or role == "Hero" then
+					return role, Color3.fromRGB(80, 160, 255)
+				end
+				return "Innocent", dimColor
+			end
+
+			local function stopSpectate()
+				spectating = nil
+				local hum = getHumanoid()
+				local cam = workspace.CurrentCamera
+				if hum and cam then
+					cam.CameraType = Enum.CameraType.Custom
+					cam.CameraSubject = hum
+				end
+			end
+
+			local function toggleSpectate(target)
+				if spectating == target then
+					stopSpectate()
+					notify("Spectate", "back to your character")
+					return
+				end
+				local char = target.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				if not hum then
+					notify("Spectate", "player is not alive")
+					return
+				end
+				spectating = target
+				workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+				workspace.CurrentCamera.CameraSubject = hum
+				notify("Spectate", target.DisplayName)
+			end
+
+			local function stopBang()
+				bangTarget = nil
+				if bangTrack then
+					pcall(function()
+						bangTrack:Stop(0.15)
+						bangTrack:Destroy()
+					end)
+					bangTrack = nil
+				end
+			end
+
+			local function toggleBang(target)
+				if bangTarget == target then
+					stopBang()
+					notify("Bang", "stopped")
+					return
+				end
+				local targetChar = target.Character
+				local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+				local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+				local hum = getHumanoid()
+				if not (targetHum and targetHum.Health > 0 and targetRoot and hum and hum.Health > 0) then
+					notify("Bang", "player is not available")
+					return
+				end
+				stopBang()
+				bangTarget = target
+				bangStarted = os.clock()
+				local anim = Instance.new("Animation")
+				anim.AnimationId = hum.RigType == Enum.HumanoidRigType.R15 and "rbxassetid://5918726674" or "rbxassetid://148840371"
+				local ok, track = pcall(function()
+					return (hum:FindFirstChildOfClass("Animator") or hum):LoadAnimation(anim)
+				end)
+				anim:Destroy()
+				if ok and track then
+					track.Priority = Enum.AnimationPriority.Action4
+					track.Looped = true
+					track:Play(0.15)
+					bangTrack = track
+				end
+				notify("Bang", target.DisplayName .. " - press again to stop")
+			end
+
+			connect(RunService.Heartbeat, function()
+				if spectating then
+					local char = spectating.Character
+					local hum = char and char:FindFirstChildOfClass("Humanoid")
+					if not hum or hum.Health <= 0 then
+						stopSpectate()
+					end
+				end
+				if not bangTarget then
+					return
+				end
+				local myChar, targetChar = player.Character, bangTarget.Character
+				local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+				local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+				local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+				local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+				if not (myRoot and myHum and myHum.Health > 0 and targetRoot and targetHum and targetHum.Health > 0) then
+					stopBang()
+					return
+				end
+				local pulse = math.sin((os.clock() - bangStarted) * 12) * 0.18
+				myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 1.15 + pulse)
+				myRoot.AssemblyLinearVelocity = Vector3.zero
+			end)
+
+			local function actionButton(parent, text, x, width, callback)
+				local button = create("TextButton", {
+					Text = text,
+					Font = Enum.Font.GothamBold,
+					TextSize = 9,
+					TextColor3 = textColor,
+					BackgroundColor3 = bgColor,
+					AutoButtonColor = false,
+					Position = UDim2.fromOffset(x, 54),
+					Size = UDim2.fromOffset(width, 22),
+					Parent = parent,
+				})
+				addCorner(button, 6)
+				local stroke = addStroke(button)
+				connect(button.MouseEnter, function()
+					tween(button, 0.15, { BackgroundColor3 = hoverColor, TextColor3 = accentColor })
+					tween(stroke, 0.15, { Color = accentColor })
+				end)
+				connect(button.MouseLeave, function()
+					tween(button, 0.15, { BackgroundColor3 = bgColor, TextColor3 = textColor })
+					tween(stroke, 0.15, { Color = strokeColor })
+				end)
+				connect(button.MouseButton1Click, function()
+					task.spawn(callback)
+				end)
+				return button
+			end
+
+			local function refreshCards()
+				for _, card in pairs(cards) do
+					card.frame:Destroy()
+				end
+				table.clear(cards)
+				local list = Players:GetPlayers()
+				table.sort(list, function(a, b)
+					return a.DisplayName:lower() < b.DisplayName:lower()
+				end)
+				local y = 48
+				for _, target in ipairs(list) do
+					if target == player then
+						continue
+					end
+					local frame = create("Frame", {
+						Position = UDim2.fromOffset(0, y),
+						Size = UDim2.new(1, -8, 0, 84),
+						BackgroundColor3 = panelColor,
+						Parent = page,
+					})
+					addCorner(frame, 9)
+					addStroke(frame)
+					local avatar = create("ImageLabel", {
+						Image = "",
+						BackgroundColor3 = elemColor,
+						AnchorPoint = Vector2.new(1, 0.5),
+						Position = UDim2.new(1, -8, 0.5, 0),
+						Size = UDim2.fromOffset(66, 66),
+						Parent = frame,
+					})
+					addCorner(avatar, 9)
+					addStroke(avatar)
+					create("TextLabel", {
+						Text = target.DisplayName,
+						Font = Enum.Font.GothamBold,
+						TextSize = 14,
+						TextColor3 = accentColor,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						TextTruncate = Enum.TextTruncate.AtEnd,
+						BackgroundTransparency = 1,
+						Position = UDim2.fromOffset(12, 7),
+						Size = UDim2.new(1, -240, 0, 17),
+						Parent = frame,
+					})
+					create("TextLabel", {
+						Text = "@" .. target.Name,
+						Font = Enum.Font.Gotham,
+						TextSize = 10,
+						TextColor3 = mutedColor,
+						TextXAlignment = Enum.TextXAlignment.Left,
+						TextTruncate = Enum.TextTruncate.AtEnd,
+						BackgroundTransparency = 1,
+						Position = UDim2.fromOffset(12, 25),
+						Size = UDim2.new(1, -240, 0, 14),
+						Parent = frame,
+					})
+					local roleLabel = create("TextLabel", {
+						Text = "Innocent",
+						Font = Enum.Font.GothamBold,
+						TextSize = 10,
+						TextColor3 = dimColor,
+						TextXAlignment = Enum.TextXAlignment.Right,
+						BackgroundTransparency = 1,
+						Position = UDim2.new(1, -218, 0, 10),
+						Size = UDim2.fromOffset(130, 16),
+						Parent = frame,
+					})
+					actionButton(frame, "FLING", 12, 54, function()
+						if playerFlingAction then
+							playerFlingAction(target)
+						end
+					end)
+					actionButton(frame, "SPECTATE", 72, 68, function()
+						toggleSpectate(target)
+					end)
+					actionButton(frame, "BANG", 146, 50, function()
+						toggleBang(target)
+					end)
+					actionButton(frame, "KILL", 202, 48, function()
+						if findTool(player, "Knife") and playerKnifeKill then
+							playerKnifeKill(target)
+						elseif findTool(player, "Gun") and playerGunKill then
+							playerGunKill(target)
+						else
+							notify("Kill", "you need the knife or gun")
+						end
+					end)
+					cards[target] = { frame = frame, role = roleLabel }
+					task.spawn(function()
+						local ok, image = pcall(Players.GetUserThumbnailAsync, Players, target.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+						if ok and frame.Parent then
+							avatar.Image = image
+						end
+					end)
+					y += 92
+				end
+				page.CanvasSize = UDim2.fromOffset(0, y + 8)
+			end
+
+			connect(Players.PlayerAdded, refreshCards)
+			connect(Players.PlayerRemoving, function(leaving)
+				if spectating == leaving then
+					stopSpectate()
+				end
+				if bangTarget == leaving then
+					stopBang()
+				end
+				task.defer(refreshCards)
+			end)
+			task.spawn(function()
+				while gui.Parent do
+					if currentTab == playersTab then
+						if not roleRemote or not roleRemote.Parent then
+							roleRemote = game:GetService("ReplicatedStorage"):FindFirstChild("GetPlayerData", true)
+						end
+						if roleRemote and roleRemote:IsA("RemoteFunction") then
+							local ok, data = pcall(roleRemote.InvokeServer, roleRemote)
+							if ok and type(data) == "table" then
+								local nextRoles = {}
+								for name, info in pairs(data) do
+									if type(info) == "table" and type(info.Role) == "string" and not info.Dead and not info.Killed then
+										nextRoles[name] = info.Role
+									end
+								end
+								roleCache = nextRoles
+							end
+						end
+						for target, card in pairs(cards) do
+							if target.Parent and card.frame.Parent then
+								local role, color = roleOf(target)
+								card.role.Text = role
+								card.role.TextColor3 = color
+							end
+						end
+					end
+					task.wait(1)
+				end
+			end)
+			refreshCards()
+
+			stopPlayersActions = function()
+				stopSpectate()
+				stopBang()
+			end
 		end
 		do
 			local baseSize = UDim2.new(0.55, 0, 0, 0)
@@ -15477,6 +15763,9 @@ return (function(...)
 			if stopRoleFling then
 				pcall(stopRoleFling)
 			end
+			if stopPlayersActions then
+				pcall(stopPlayersActions)
+			end
 			pcall(disableNoclip)
 			pcall(disableAntiFling)
 			if stopVoteDupe then
@@ -15487,6 +15776,9 @@ return (function(...)
 			end
 			if stopAvatar then
 				pcall(stopAvatar)
+			end
+			if stopAura then
+				pcall(stopAura)
 			end
 			if stopOrbs then
 				pcall(stopOrbs)
