@@ -4,6 +4,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local TextService = game:GetService("TextService")
+local GuiService = game:GetService("GuiService")
 local player = Players.LocalPlayer
 if _G.RockHubUnload then
 	pcall(_G.RockHubUnload)
@@ -324,6 +325,10 @@ end
 if not parented then
 	gui.Parent = player:WaitForChild("PlayerGui")
 end
+pcall(function()
+	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
+	gui.ClipToDeviceSafeArea = true
+end)
 
 local function findLobbyBrandWall()
 	local lobby = workspace:FindFirstChild("RegularLobby")
@@ -410,6 +415,46 @@ addCorner(main, 10)
 local mainStroke = create("UIStroke", { Thickness = 1, Color = accentColor, Transparency = 0.3, Parent = main })
 addGradient(mainStroke)
 local mainScale = create("UIScale", { Scale = 0, Parent = main })
+local menuOpen = false
+local responsiveScale = 1
+local viewportConnection
+
+local function updateResponsiveScale()
+	local cam = workspace.CurrentCamera
+	if not cam then
+		return
+	end
+	local viewport = cam.ViewportSize
+	local topLeft, bottomRight = Vector2.zero, Vector2.zero
+	pcall(function()
+		topLeft, bottomRight = GuiService:GetGuiInset()
+	end)
+	local margin = UserInputService.TouchEnabled and 16 or 24
+	local availableWidth = math.max(1, viewport.X - topLeft.X - bottomRight.X - margin)
+	local availableHeight = math.max(1, viewport.Y - topLeft.Y - bottomRight.Y - margin)
+	responsiveScale = math.clamp(math.min(availableWidth / 680, availableHeight / 470), 0.35, 1)
+	if UserInputService.TouchEnabled then
+		main.Position = UDim2.fromScale(0.5, 0.5)
+	end
+	if menuOpen then
+		mainScale.Scale = responsiveScale
+	end
+end
+
+local function bindViewport()
+	if viewportConnection then
+		viewportConnection:Disconnect()
+	end
+	local cam = workspace.CurrentCamera
+	if cam then
+		viewportConnection = connect(cam:GetPropertyChangedSignal("ViewportSize"), updateResponsiveScale)
+	end
+	updateResponsiveScale()
+end
+
+connect(workspace:GetPropertyChangedSignal("CurrentCamera"), bindViewport)
+connect(gui:GetPropertyChangedSignal("AbsoluteSize"), updateResponsiveScale)
+bindViewport()
 local topBar = create("Frame", { Size = UDim2.new(1, 0, 0, 38), BackgroundTransparency = 1, Parent = main })
 local logo = create("TextLabel", {
 	Text = "Rock Hub t.me/rockscript",
@@ -2804,7 +2849,6 @@ return (function(...)
 			hum:ChangeState(Enum.HumanoidStateType.Jumping)
 		end
 	end)
-	local menuOpen = false
 	local menuSeq = 0
 	local showMascot
 	local mascot = {}
@@ -2825,7 +2869,7 @@ return (function(...)
 		local id = menuSeq
 		if state then
 			main.Visible = true
-			tween(mainScale, 0.3, { Scale = 1 }, Enum.EasingDirection.Out, Enum.EasingStyle.Back)
+			tween(mainScale, 0.3, { Scale = responsiveScale }, Enum.EasingDirection.Out, Enum.EasingStyle.Back)
 			tween(blur, 0.3, { Size = blurSize })
 			if currentTab then
 				task.delay(0.15, function()
@@ -16020,6 +16064,8 @@ return (function(...)
 				BackgroundTransparency = 1,
 				Parent = overlay,
 			})
+			local introViewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(420, 130)
+			create("UIScale", { Scale = math.clamp((introViewport.X - 24) / 420, 0.55, 1), Parent = center })
 			local font = Enum.Font.GothamBlack
 			local widths, total = {}, 0
 			for i = 1, #"ROCK HUB" do
@@ -16151,6 +16197,12 @@ return (function(...)
 			if not gui.Parent then
 				return
 			end
+			gui.IgnoreGuiInset = false
+			pcall(function()
+				gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
+				gui.ClipToDeviceSafeArea = true
+			end)
+			updateResponsiveScale()
 			setMenuOpen(true)
 			task.wait(0.4)
 			animConn:Disconnect()
