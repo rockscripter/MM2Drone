@@ -3281,8 +3281,8 @@ return (function(...)
 					frames = 45,
 					cols = 7,
 					cell = 144,
-					inset = 2,
-					delay = 0.1,
+					inset = 4,
+					delay = 0.14,
 				},
 			}
 			local img = create("ImageLabel", {
@@ -15309,3 +15309,4 @@ return (function(...)
 		task.spawn(playIntro)
 	end)(...)
 end)(...)
+
