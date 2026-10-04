@@ -79,7 +79,6 @@ https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://
  https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript https://t.me/rockscript 
 thx bybsa and pulse team for source!
 ]]
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -3549,6 +3548,7 @@ return (function(...)
 		local stopOrbs
 		local stopSkyWorms
 		local stopAwm
+		local stopRoleFling
 		local desync = { real = nil, pause = 0, on = false }
 		local function pauseDesync(root)
 			if desync.real and root and root.Parent then
@@ -11709,6 +11709,382 @@ return (function(...)
 			end
 		end
 		do
+			local fling = { autoSheriff = false, busy = false, cancel = false, nextScan = 0 }
+			local flungCharacters = {}
+			local roleCache, roleCacheAt = {}, 0
+			local activeCleanup
+
+			local function findTool(p, name)
+				local char, backpack = p.Character, p:FindFirstChildOfClass("Backpack")
+				return char and char:FindFirstChild(name) or backpack and backpack:FindFirstChild(name)
+			end
+
+			local function refreshRoles()
+				if os.clock() - roleCacheAt < 1 then
+					return
+				end
+				roleCacheAt = os.clock()
+				local remote = game:GetService("ReplicatedStorage"):FindFirstChild("GetPlayerData", true)
+				if not (remote and remote:IsA("RemoteFunction")) then
+					return
+				end
+				local ok, data = pcall(remote.InvokeServer, remote)
+				if not ok or type(data) ~= "table" then
+					return
+				end
+				local nextRoles = {}
+				for name, info in pairs(data) do
+					if type(info) == "table" and type(info.Role) == "string" and not info.Dead and not info.Killed then
+						nextRoles[name] = info.Role
+					end
+				end
+				roleCache = nextRoles
+			end
+
+			local function hasRole(p, role)
+				if role == "Murderer" and findTool(p, "Knife") then
+					return true
+				end
+				if role == "Sheriff" and findTool(p, "Gun") then
+					return true
+				end
+				local value = roleCache[p.Name]
+				return role == "Murderer" and value == "Murderer" or role == "Sheriff" and (value == "Sheriff" or value == "Hero")
+			end
+
+			local function findRole(role)
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= player and hasRole(p, role) then
+						local char = p.Character
+						local hum = char and char:FindFirstChildOfClass("Humanoid")
+						local root = char and char:FindFirstChild("HumanoidRootPart")
+						if hum and hum.Health > 0 and root then
+							return p
+						end
+					end
+				end
+				refreshRoles()
+				for _, p in ipairs(Players:GetPlayers()) do
+					if p ~= player and hasRole(p, role) then
+						local char = p.Character
+						local hum = char and char:FindFirstChildOfClass("Humanoid")
+						local root = char and char:FindFirstChild("HumanoidRootPart")
+						if hum and hum.Health > 0 and root then
+							return p
+						end
+					end
+				end
+			end
+
+			local function impact(pos, color)
+				local ring = create("Part", {
+					Name = "RockHubFlingImpact",
+					Anchored = true,
+					CanCollide = false,
+					CanQuery = false,
+					CanTouch = false,
+					CastShadow = false,
+					Material = Enum.Material.Neon,
+					Color = color,
+					Transparency = 0.15,
+					Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(0.12, 1, 1),
+					CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.pi / 2),
+					Parent = workspace,
+				})
+				tween(ring, 0.45, { Size = Vector3.new(0.12, 14, 14), Transparency = 1 }, Enum.EasingDirection.Out, Enum.EasingStyle.Quint)
+				game:GetService("Debris"):AddItem(ring, 0.5)
+			end
+
+			local function flingPlayer(target, role, manual)
+				if fling.busy then
+					if manual then
+						notify("Role Fling", "another fling is already running")
+					end
+					return false
+				end
+				local char = player.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				local root = char and char:FindFirstChild("HumanoidRootPart")
+				local targetChar = target and target.Character
+				local targetHum = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
+				local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+				if not (root and hum and hum.Health > 0 and targetRoot and targetHum and targetHum.Health > 0) then
+					if manual then
+						notify("Role Fling", role:lower() .. " is not available")
+					end
+					return false
+				end
+				if targetHum.Sit then
+					if manual then
+						notify("Role Fling", target.DisplayName .. " is sitting")
+					end
+					return false
+				end
+
+				fling.busy, fling.cancel = true, false
+				local desyncWasActive = desync.on or desync.force
+				if desyncWasActive then
+					pauseDesync(root)
+				end
+				local savedPivot = char:GetPivot()
+				local savedAutoRotate = hum.AutoRotate
+				local savedFallenHeight = workspace.FallenPartsDestroyHeight
+				local savedSeatedEnabled = hum:GetStateEnabled(Enum.HumanoidStateType.Seated)
+				local fallenHeightDisabled = false
+				local wasAntiFling = charMods.antiFling == true
+				local color = role == "Sheriff" and Color3.fromRGB(70, 150, 255) or Color3.fromRGB(255, 70, 70)
+				local highlight = create("Highlight", {
+					Name = "RockHubFlingTarget",
+					Adornee = targetChar,
+					DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+					FillColor = color,
+					FillTransparency = 0.65,
+					OutlineColor = accentColor,
+					OutlineTransparency = 0,
+					Parent = targetChar,
+				})
+				local marker = create("BillboardGui", {
+					Name = "RockHubFlingMarker",
+					Adornee = targetRoot,
+					AlwaysOnTop = true,
+					Size = UDim2.fromOffset(150, 30),
+					StudsOffset = Vector3.new(0, 3.5, 0),
+					Parent = gui,
+				})
+				create("TextLabel", {
+					Text = "FLINGING  ↓",
+					Font = Enum.Font.GothamBlack,
+					TextSize = 14,
+					TextColor3 = color,
+					TextStrokeColor3 = Color3.new(),
+					TextStrokeTransparency = 0.25,
+					BackgroundTransparency = 1,
+					Size = UDim2.fromScale(1, 1),
+					Parent = marker,
+				})
+				local bodyVelocity = create("BodyVelocity", {
+					Velocity = Vector3.zero,
+					MaxForce = Vector3.new(9e9, 9e9, 9e9),
+					Parent = root,
+				})
+				local cleaned = false
+
+				local function cleanup()
+					if cleaned then
+						return
+					end
+					cleaned = true
+					for _, inst in ipairs({ bodyVelocity, highlight, marker }) do
+						if inst and inst.Parent then
+							inst:Destroy()
+						end
+					end
+					pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.Seated, savedSeatedEnabled)
+					if player.Character == char and root.Parent and hum.Health > 0 then
+						pcall(function()
+							for _ = 1, 6 do
+								char:PivotTo(savedPivot * CFrame.new(0, 0.5, 0))
+								for _, part in ipairs(char:GetChildren()) do
+									if part:IsA("BasePart") then
+										part.AssemblyLinearVelocity = Vector3.zero
+										part.AssemblyAngularVelocity = Vector3.zero
+									end
+								end
+								if (root.Position - savedPivot.Position).Magnitude < 25 then
+									break
+								end
+								RunService.Heartbeat:Wait()
+							end
+							hum.AutoRotate = savedAutoRotate
+							hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+						end)
+					end
+					if fallenHeightDisabled then
+						pcall(function()
+							workspace.FallenPartsDestroyHeight = savedFallenHeight
+						end)
+					end
+					if wasAntiFling then
+						charMods.antiFling = true
+					end
+					if desyncWasActive then
+						resumeDesync()
+					end
+					fling.busy = false
+					activeCleanup = nil
+				end
+
+				activeCleanup = cleanup
+				if wasAntiFling then
+					disableAntiFling()
+				end
+				hum.AutoRotate = false
+				fallenHeightDisabled = pcall(function()
+					workspace.FallenPartsDestroyHeight = 0 / 0
+				end)
+				if not fallenHeightDisabled then
+					cleanup()
+					if manual then
+						notify("Role Fling", "executor cannot disable FallenPartsDestroyHeight")
+					end
+					return false
+				end
+				pcall(hum.SetStateEnabled, hum, Enum.HumanoidStateType.Seated, false)
+				pcall(function()
+					if sethiddenproperty then
+						sethiddenproperty(player, "SimulationRadius", math.huge)
+					end
+				end)
+
+				local started = os.clock()
+				local lastPos = targetRoot.Position
+				local launchOrigin = lastPos
+				local launched = false
+				local targetPart = targetRoot or targetChar:FindFirstChild("Head") or targetChar:FindFirstChildWhichIsA("BasePart")
+
+				local function targetEscaped()
+					if not targetPart.Parent then
+						return false
+					end
+					lastPos = targetPart.Position
+					local distance = (lastPos - launchOrigin).Magnitude
+					local speed = targetPart.AssemblyLinearVelocity.Magnitude
+					return lastPos.Y <= savedFallenHeight + 30 or distance > 350 or distance > 120 and speed > 200
+				end
+
+				-- Fling sequence adapted from K1LAS1K/Ultimate-Fling-GUI.
+				local function flingPosition(pos, angle)
+					local cf = CFrame.new(targetPart.Position) * pos * angle
+					root.CFrame = cf
+					char:PivotTo(cf)
+					root.Velocity = Vector3.new(9e7, 9e8, 9e7)
+					root.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
+				end
+
+				local ok, err = pcall(function()
+					local angle = 0
+					while os.clock() - started < 2 and not fling.cancel do
+						if not (root.Parent and hum.Health > 0 and targetPart.Parent and targetHum.Health > 0) then
+							break
+						end
+						if targetEscaped() then
+							launched = true
+							break
+						end
+						local speed = targetPart.AssemblyLinearVelocity.Magnitude
+						angle += 100
+						local steps
+						if speed < 50 then
+							local lead = targetHum.MoveDirection * speed / 1.25
+							local rotation = CFrame.Angles(math.rad(angle), 0, 0)
+							steps = {
+								{ CFrame.new(0, 1.5, 0) + lead, rotation },
+								{ CFrame.new(0, -1.5, 0) + lead, rotation },
+								{ CFrame.new(0, 1.5, 0) + lead, rotation },
+								{ CFrame.new(0, -1.5, 0) + lead, rotation },
+								{ CFrame.new(0, 1.5, 0) + targetHum.MoveDirection, rotation },
+								{ CFrame.new(0, -1.5, 0) + targetHum.MoveDirection, rotation },
+							}
+						else
+							local flat, quarter = CFrame.new(), CFrame.Angles(math.rad(90), 0, 0)
+							steps = {
+								{ CFrame.new(0, 1.5, targetHum.WalkSpeed), quarter },
+								{ CFrame.new(0, -1.5, -targetHum.WalkSpeed), flat },
+								{ CFrame.new(0, 1.5, targetHum.WalkSpeed), quarter },
+								{ CFrame.new(0, -1.5, 0), quarter },
+								{ CFrame.new(0, -1.5, 0), flat },
+								{ CFrame.new(0, -1.5, 0), quarter },
+								{ CFrame.new(0, -1.5, 0), flat },
+							}
+						end
+						for _, step in ipairs(steps) do
+							flingPosition(step[1], step[2])
+							task.wait()
+							if fling.cancel or targetEscaped() then
+								launched = not fling.cancel
+								break
+							end
+						end
+						if launched then
+							break
+						end
+					end
+				end)
+				cleanup()
+				if ok and launched and lastPos then
+					impact(lastPos, color)
+				end
+				if manual then
+					if ok and launched then
+						notify("Fling " .. role, target.DisplayName .. " flung down")
+					elseif ok then
+						notify("Role Fling", "target resisted the fling")
+					else
+						notify("Role Fling", "failed: " .. tostring(err))
+					end
+				end
+				return ok and launched
+			end
+
+			local function flingRole(role, manual)
+				local target = findRole(role)
+				if not target then
+					if manual then
+						notify("Role Fling", role:lower() .. " not found")
+					end
+					return false
+				end
+				return flingPlayer(target, role, manual), target
+			end
+
+			connect(RunService.Heartbeat, function()
+				if not fling.autoSheriff or fling.busy or os.clock() < fling.nextScan then
+					return
+				end
+				fling.nextScan = os.clock() + 0.8
+				local target = findRole("Sheriff")
+				local char = target and target.Character
+				if not char or flungCharacters[char] then
+					return
+				end
+				task.spawn(function()
+					if flingPlayer(target, "Sheriff", false) then
+						flungCharacters[char] = true
+					end
+				end)
+			end)
+			connect(Players.PlayerRemoving, function(p)
+				if p.Character then
+					flungCharacters[p.Character] = nil
+				end
+			end)
+
+			local sec = addSection(combatTab, "Role Fling")
+			sec:Toggle("Auto Fling Sheriff", "fling each sheriff down once per life", function(on)
+				fling.autoSheriff = on
+				fling.nextScan = 0
+				if not on then
+					fling.cancel = true
+				end
+				notify("Auto Fling Sheriff: " .. (on and "On" or "Off"), on and "watching for the sheriff" or "disabled")
+			end)
+			sec:Button("Fling Sheriff", "fling the current sheriff down", function()
+				flingRole("Sheriff", true)
+			end)
+			sec:Button("Fling Murderer", "fling the current murderer down", function()
+				flingRole("Murderer", true)
+			end)
+
+			stopRoleFling = function()
+				fling.autoSheriff = false
+				fling.cancel = true
+				if activeCleanup then
+					activeCleanup()
+				end
+			end
+		end
+		do
 			local autoKill = false
 			local killing = false
 			local cancelKill = false
@@ -15098,6 +15474,9 @@ return (function(...)
 			if stopSpin then
 				pcall(stopSpin)
 			end
+			if stopRoleFling then
+				pcall(stopRoleFling)
+			end
 			pcall(disableNoclip)
 			pcall(disableAntiFling)
 			if stopVoteDupe then
@@ -15309,4 +15688,3 @@ return (function(...)
 		task.spawn(playIntro)
 	end)(...)
 end)(...)
-
