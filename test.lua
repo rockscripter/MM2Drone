@@ -418,6 +418,7 @@ local mainScale = create("UIScale", { Scale = 0, Parent = main })
 local menuOpen = false
 local responsiveScale = 1
 local viewportConnection
+local updateWatermarkResponsive
 
 local function updateResponsiveScale()
 	local cam = workspace.CurrentCamera
@@ -438,6 +439,9 @@ local function updateResponsiveScale()
 	end
 	if menuOpen then
 		mainScale.Scale = responsiveScale
+	end
+	if updateWatermarkResponsive then
+		updateWatermarkResponsive()
 	end
 end
 
@@ -2971,12 +2975,13 @@ return (function(...)
 		end)
 	end
 
-	local function setPopVisible(frame, scale, on)
+	local function setPopVisible(frame, scale, on, targetScale)
+		targetScale = targetScale or 1
 		frame:SetAttribute("pzOn", on)
 		if on then
 			frame.Visible = true
-			scale.Scale = 0.6
-			tween(scale, 0.35, { Scale = 1 }, Enum.EasingDirection.Out, Enum.EasingStyle.Back)
+			scale.Scale = targetScale * 0.6
+			tween(scale, 0.35, { Scale = targetScale }, Enum.EasingDirection.Out, Enum.EasingStyle.Back)
 		else
 			local tween2 = tween(scale, 0.18, { Scale = 0 }, Enum.EasingDirection.In)
 			tween2.Completed:Connect(function()
@@ -3010,6 +3015,24 @@ return (function(...)
 	})
 	addCorner(watermark, 10)
 	local wmScale = create("UIScale", { Scale = 0, Parent = watermark })
+	local watermarkTargetScale = 1
+	updateWatermarkResponsive = function()
+		local cam = workspace.CurrentCamera
+		local viewport = cam and cam.ViewportSize or Vector2.new(1280, 720)
+		if UserInputService.TouchEnabled then
+			if math.min(viewport.X, viewport.Y) >= 600 then
+				watermarkTargetScale = 0.85
+			else
+				watermarkTargetScale = math.clamp(responsiveScale, 0.58, 0.75)
+			end
+		else
+			watermarkTargetScale = 1
+		end
+		if watermark:GetAttribute("pzOn") then
+			wmScale.Scale = watermarkTargetScale
+		end
+	end
+	updateWatermarkResponsive()
 	local wmStroke = create("UIStroke", {
 		Color = accentColor,
 		Thickness = 1,
@@ -3282,7 +3305,7 @@ return (function(...)
 
 		local function refreshMenuButton()
 			local hover = hovering
-			tween(wmScale, 0.2, { Scale = hover and 1.03 or 1 }, Enum.EasingDirection.Out, Enum.EasingStyle.Quint)
+			tween(wmScale, 0.2, { Scale = watermarkTargetScale * (hover and 1.03 or 1) }, Enum.EasingDirection.Out, Enum.EasingStyle.Quint)
 			tween(wmStroke, 0.2, { Transparency = (hover or menuOpen) and 0 or 0.5 })
 			local btnColor = hover and accentColor or (menuOpen and hoverColor or elemColor)
 			local fg = hover and bgColor or textColor
@@ -3321,7 +3344,7 @@ return (function(...)
 		end)
 		connect(watermark.InputBegan, function(input)
 			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-				tween(wmScale, 0.1, { Scale = 0.96 })
+				tween(wmScale, 0.1, { Scale = watermarkTargetScale * 0.96 })
 			end
 		end)
 		makeDraggable(wmHolder, "hud/watermark_pos", function()
@@ -3343,7 +3366,7 @@ return (function(...)
 			if on == (watermark:GetAttribute("pzOn") == true) then
 				return
 			end
-			setPopVisible(watermark, wmScale, on)
+			setPopVisible(watermark, wmScale, on, watermarkTargetScale)
 			if not on then
 				showTip(false)
 			end
@@ -3378,7 +3401,7 @@ return (function(...)
 				if not wmUsed and not hovering then
 					menuStroke.Transparency = 0.15 + 0.55 * (0.5 + 0.5 * math.cos((now - wmStart) * 4))
 				end
-				if wmScale.Scale > 0.99 then
+				if wmScale.Scale > watermarkTargetScale * 0.99 then
 					wmHolder.Size = UDim2.fromOffset(watermark.AbsoluteSize.X, watermark.AbsoluteSize.Y)
 				end
 				if tip.Visible then
